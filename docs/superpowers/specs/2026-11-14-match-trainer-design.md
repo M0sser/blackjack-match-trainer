@@ -2,7 +2,7 @@
 
 Date: 2026-11-14
 
-Status: Dave saw both screen mockups, then said "go" and "make". He has not
+Status: the user saw both screen mockups, then said "go" and "make". They have not
 read this document. Everything marked **(my call)** was decided by Claude and
 is open to correction.
 
@@ -14,9 +14,9 @@ start with 1,000 chips and play five rounds against a dealer. Whoever has
 more chips after round five wins. The other player's bets, plays and chips
 are never visible.
 
-Dave plays this format. He wants to know the best bet and the best play in
+The user plays this format. They want to know the best bet and the best play in
 every spot, and to get fast enough to play a real match from memory inside
-its six-minute clock. His words: "optimized enough that it can do all rounds
+its six-minute clock. Their words: "optimized enough that it can do all rounds
 as fast as possible", "close to the real experience", "put in the cards for
 each match … and from there calculate the best play", "the simulator should
 be calculating optimal bet size as well".
@@ -34,11 +34,11 @@ It never means "wins the most chips".
 
 1. **Practice table.** The tool deals five-round matches by the real rules,
    on a six-minute clock, against a hidden stand-in opponent. Each round has
-   two inputs: the bet, then the play. Dave approved this flow (mockup:
+   two inputs: the bet, then the play. The user approved this flow (mockup:
    `docs/mockups/practice-round.html`).
-2. **Match review.** After a real match is over, Dave enters what happened in
+2. **Match review.** After a real match is over, the player enters what happened in
    all five rounds and gets a report: best bet and best play for every
-   round, next to what he did (mockup: `docs/mockups/match-review.html`).
+   round, next to what they did (mockup: `docs/mockups/match-review.html`).
 3. **One brain** behind both, grading bets and plays by the chance of
    finishing ahead.
 4. **Fast and familiar.** Same chip values, same order of steps, same clock
@@ -48,11 +48,11 @@ It never means "wins the most chips".
 
 ### Non-goals for this version
 
-- Tuning the stand-in opponents from Dave's logged matches. The review saves
+- Tuning the stand-in opponents from the user's logged matches. The review saves
   the data, so this can be added later.
 - The research dashboard, Streamlit interface and open-ended policy search
   from the original plan
-  (`C:\Users\Dave\Downloads\21_rivals_tournament_optimizer_plan.md`). A small
+  (`21_rivals_tournament_optimizer_plan.md`, in the Downloads folder). A small
   benchmark report replaces them (section 6.9).
 - Re-splitting, surrender, and a one-page betting plan to memorise.
 
@@ -60,10 +60,9 @@ It never means "wins the most chips".
 
 - **Anything usable during a live match.** No connection to DraftKings, no
   screen reading, no automation, and no hand-by-hand answers for cards typed
-  in. Dave asked for a tool he could feed cards at the start of each hand;
-  Claude declined that, because a live match is a paid contest against
-  another person. The review takes a finished match as a whole and only then
-  reports.
+  in. Feeding the tool cards at the start of each hand was considered and
+  ruled out, because a live match is a paid contest against another person.
+  The review takes a finished match as a whole and only then reports.
 - **Copying DraftKings' look, name or branding.** The tool matches how the
   game plays. Its look is plain and its own. On screen it is called "Match
   Trainer".
@@ -75,7 +74,7 @@ It never means "wins the most chips".
 - Windows 11. Python 3.13 is installed and starts with `py -3.13`. Plain
   `python` is not on the PATH.
 - Works offline once set up. The only add-on is NumPy (pytest for tests).
-- Dave is not a programmer. He starts the tool by double-clicking a file, and
+- The user is not a programmer. They start the tool by double-clicking a file, and
   anything that goes wrong is explained in plain words.
 - Several rules of the real game are unpublished. Each is a setting with a
   default (section 5).
@@ -104,9 +103,9 @@ round five will be played well, and so on back to round one. This captures
 when to chase and when to sit tight, the answers are instant once solved,
 and the result can be checked against plain simulation.
 
-**Chosen: C (my call).** Dave talks about outcomes, not methods, so the
+**Chosen: C (my call).** The user talks about outcomes, not methods, so the
 method was left to Claude. C is the only one that makes "best bet" mean what
-he asked for. Its cost is a one-off solve of a few minutes whenever the
+they asked for. Its cost is a one-off solve of a few minutes whenever the
 rules or opponents change.
 
 ### 4.2 How it runs and looks
@@ -121,18 +120,21 @@ installs beyond NumPy.
 **C. A desktop window (tkinter).** No browser, but slow to make look and
 feel right.
 
-**Chosen: B (my call).** Dave has already used a browser tab for the mockups,
+**Chosen: B (my call).** The user has already used a browser tab for the mockups,
 and a web page handles the clock and quick clicks best.
 
 ## 5. Rules
 
-"Published" means stated in DraftKings' launch post (section 9). "Dave" means
-he confirmed it. Everything else is an assumption **(my call)** and a setting
-he can change.
+"Published" means stated in DraftKings' launch post (section 9). "User" means
+the user confirmed it. Everything else is an assumption **(my call)**. In this
+version Settings can change: the minimum bet, how equal chips count, double
+after split, splitting by value or by rank, whether insurance is offered,
+and the clock length. The other assumptions are fixed in the code and
+listed here so they are easy to find and change later.
 
 | Rule | Default | Source |
 | --- | --- | --- |
-| Starting chips | 1,000 | Dave |
+| Starting chips | 1,000 | User |
 | Rounds | 5 | Published |
 | Shoe | Six decks, shuffled fresh for every round | Published ("the card shuffle for each round") |
 | Shared cards | Both players get the same card order each round | Published |
@@ -145,7 +147,7 @@ he can change.
 | Surrender | Not offered | Not mentioned anywhere |
 | Double | Any first two cards, including after a split | Assumption |
 | Split | Two cards of equal value, once per round; split aces get one card each; 21 after a split is not blackjack | Assumption |
-| Main bet | Multiples of 5, minimum 5, maximum all chips | All-in from Dave; minimum assumed |
+| Main bet | Multiples of 5, minimum 5, maximum all chips | All-in from the user; minimum assumed |
 | Betting every round | Required while you have chips | Assumption |
 | Perfect Pairs | Same rank and suit 25:1, same rank and colour 12:1, same rank 6:1 | Published |
 | 4 Card Total | Your two cards plus both dealer cards, ace = 11: 36–37 pays 2:1, 38–39 pays 8:1, 40+ pays 10:1 | Published |
@@ -238,36 +240,36 @@ and the tables. After five rounds this gives, for every full history, how
 likely the other player is to hold fewer chips than any given total, or
 exactly that total.
 
-**Dave's bets backward.** For round five, for every history and every chip
+**The player's bets backward.** For round five, for every history and every chip
 total on a grid, try a menu of bets and keep the one with the best chance of
 finishing ahead (equal chips count half). Then do round four using the
-round-five answers, and so on back to round one. Dave is assumed to play
+round-five answers, and so on back to round one. The player is assumed to play
 Book in later rounds. The result is a table: best chance and best bet for
 every round, history and chip total. It is saved to disk and reused until
 the rules or opponents change.
 
-**Grading a bet.** At a bet decision the tool knows the round, Dave's chips
+**Grading a bet.** At a bet decision the tool knows the round, the player's chips
 and the cards of earlier rounds. It scores every legal bet in steps of 5
 with one exact step forward into the solved table, then reports the best
-bet, Dave's bet, and each one's chance of finishing ahead. Side bets are
+bet, the player's bet, and each one's chance of finishing ahead. Side bets are
 scored the same way. The tool recommends a side bet only in round five,
-where the scoring is exact; in earlier rounds it shows what Dave's side bet
+where the scoring is exact; in earlier rounds it shows what the player's side bet
 cost or gained.
 
 **Grading a play.** At a hit, stand, double, split or insurance decision the
 tool deals out the unseen cards many thousands of times. For each deal it
-finds Dave's result under each legal choice (followed by Book play) and the
+finds the player's result under each legal choice (followed by Book play) and the
 round's result class, then reads the chance of finishing ahead from the
-solved table. It reports the best choice and Dave's choice.
+solved table. It reports the best choice and the player's choice.
 
-**Close calls.** If Dave's choice is within half a percentage point of the
+**Close calls.** If the player's choice is within half a percentage point of the
 best, or within the noise of the estimate, it counts as fine. The tool does
 not nag over coin flips.
 
-**Unseen cards in a review.** When Book play would have used a card Dave
+**Unseen cards in a review.** When Book play would have used a card the player
 never saw, the tool averages over what that card could have been.
 
-**Speed targets.** First solve: under five minutes on Dave's PC, with
+**Speed targets.** First solve: under five minutes on the user's PC, with
 progress shown. After that: a bet grade in under half a second, a play grade
 in under a second, a full review report in under fifteen seconds.
 
@@ -277,7 +279,7 @@ in under a second, a full review report in under fifteen seconds.
   shoes and secretly picks one stand-in opponent by weight.
 - **Bet**: chips 5, 10, 25, 100, 500, 1,000 add to the bet. Clear, All in and
   Same bet buttons. Two side-bet boxes. Deal.
-- **Play**: Dave's cards, the dealer's up card and face-down card. Hit,
+- **Play**: the player's cards, the dealer's up card and face-down card. Hit,
   Stand, Double, Split, with unavailable buttons greyed out. Insurance is
   offered when the dealer shows an ace. Keyboard shortcuts for every button.
 - **After the hand**: the dealer's cards, the result, the new chip total.
@@ -286,35 +288,35 @@ in under a second, a full review report in under fifteen seconds.
   **Match** shows nothing until the end, like a real match.
 - **Clock**: counts down from 6:00 across all five rounds. In Match, hitting
   0:00 forfeits.
-- **End**: Dave's total, the opponent's total and what kind of opponent it
+- **End**: the player's total, the opponent's total and what kind of opponent it
   was, who finished ahead, and every grade.
 
 ### 6.7 Match review
 
 - Five round tabs. Each round is entered in two steps.
-  - **Start of the hand**: main bet, side bets, Dave's two cards, the
+  - **Start of the hand**: main bet, side bets, the player's two cards, the
     dealer's up card. Suits are asked for only when they matter (a Perfect
     Pairs stake on a pair).
-  - **How it ended**: what Dave did in order, the card each hit, double or
-    split brought, whether he took insurance, the dealer's face-down card
+  - **How it ended**: what the player did in order, the card each hit, double or
+    split brought, whether they took insurance, the dealer's face-down card
     and any cards the dealer drew.
 - Cards are entered by tapping a rank. The form works out each round's
   result and the running chip total, so a typo shows up as a total that
-  does not match what Dave remembers.
+  does not match what the player remembers.
 - Rounds after a bust-out are skipped.
 - An optional box records the other player's final chips, if the game shows
-  them, and whether Dave won.
+  them, and whether the player won.
 - **Analyze match** is available only when every round played is complete.
-  The report then lists, per round, Dave's bet against the best bet and each
+  The report then lists, per round, the player's bet against the best bet and each
   play against the best play, with the chance of finishing ahead for both,
   followed by a short summary and the biggest miss.
 - Each analyzed match is saved under `data/reviews/`.
 
 ### 6.8 Settings
 
-Every rule in section 5 that is an assumption, the opponent weights from
-section 6.4, and the Coach/Match default. Changing rules or opponents
-re-solves the brain in the background and says so.
+The adjustable rules named in section 5, the opponent weights from section
+6.4, and the Coach/Match default. Changing rules or opponents re-solves the
+brain in the background and says so.
 
 ### 6.9 Benchmark report
 
@@ -364,8 +366,8 @@ of grade reasons, and the visual design within "plain and its own".
 - DraftKings Network, "21 Rivals, DraftKings' New Head-to-Head Card Game,
   Launches Today", 2026-11-10:
   https://dknetwork.draftkings.com/2026/11/10/21-rivals-draftkings-head-to-head-card-game-launch/
-- Dave's original plan:
-  `C:\Users\Dave\Downloads\21_rivals_tournament_optimizer_plan.md`
-- The two mockups Dave saw: `docs/mockups/practice-round.html` and
+- The user's original plan:
+  `21_rivals_tournament_optimizer_plan.md`, in the Downloads folder
+- The two mockups the user saw: `docs/mockups/practice-round.html` and
   `docs/mockups/match-review.html` (page fragments from the brainstorm
   browser tab; they need its frame styles to render).
