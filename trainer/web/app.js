@@ -165,7 +165,19 @@
     BEST_NOTE: "Best means finishing ahead most often against the stand-in opponents in Settings.",
   };
 
+  // The browser checks (scripts/smoke_ui.py) save the page's markup once a test hook has set the
+  // title to "... done". Markup does not carry what form fields currently hold, so write it in.
+  function showFieldValuesInMarkup() {
+    if (!document.title.endsWith(" done")) return;
+    for (const field of document.querySelectorAll("input, select")) {
+      if (field.type === "checkbox" || field.type === "radio") field.toggleAttribute("checked", field.checked);
+      else if (field.tagName === "SELECT") for (const o of field.options) o.toggleAttribute("selected", o.selected);
+      else field.setAttribute("value", field.value);
+    }
+  }
+
   document.addEventListener("DOMContentLoaded", () => {
+    new MutationObserver(showFieldValuesInMarkup).observe(document.querySelector("title"), { childList: true });
     for (const button of document.querySelectorAll(".tab")) {
       button.addEventListener("click", () => {
         history.replaceState(null, "", "#" + button.dataset.tab);

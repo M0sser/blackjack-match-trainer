@@ -1,0 +1,672 @@
+// The review screen: put in a finished match round by round, let the trainer check that the
+// chips add up, then analyze the whole match at once. It never grades a single hand.
+(function () {
+  "use strict";
+
+  const T = window.Trainer;
+  const el = T.el;
+  const ROUNDS = 5;
+  const STORE = "match-trainer-review";
+  const RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+  const KEYS = { a: "A", t: "10", j: "J", q: "Q", k: "K", "0": "10", "1": "A" };
+  const SUITS = [["S", "♠ Spades"], ["H", "♥ Hearts"], ["D", "♦ Diamonds"], ["C", "♣ Clubs"]];
+  const DID = { stand: "Stood", hit: "Hit", double: "Doubled", split: "Split",
+                insurance: "Took insurance", no_insurance: "No insurance" };
+  const DO = { stand: "Stand", hit: "Hit", double: "Double", split: "Split",
+               insurance: "Insurance", no_insurance: "No insurance" };
+
+  // ---- state ------------------------------------------------------------------
+
+  function blankRound() {
+    return { main: "", pp: "", fct: "", player: [null, null], suits: [null, null], upcard: null,
+             insurance: false, actions: [], dealer: [] };
+  }
+
+  function blankForm() {
+    return { rounds: Array.from({ length: ROUNDS }, blankRound), current: 0, opponentFinal: "", won: "unsure" };
+  }
+
+  function load() {
+    try {
+      const form = JSON.parse(localStorage.getItem(STORE));
+      if (form && Array.isArray(form.rounds) && form.rounds.length === ROUNDS) return form;
+    } catch (err) { /* nothing saved, or storage is blocked */ }
+    return blankForm();
+  }
+
+  function save() {
+    try { localStorage.setItem(STORE, JSON.stringify(state.form)); } catch (err) { /* storage is blocked */ }
+  }
+
+  const state = {
+    form: load(),
+    slot: null,          // the card slot the picker fills: {kind: player|upcard|action|dealer, i, j}
+    checks: [],          // the latest /api/review/check answer, one entry per round
+    report: null,        // the latest /api/review/analyze answer
+    analyzing: false,
+  };
+  const view = {};       // the containers that get re-rendered
+
+  function round() { return state.form.rounds[state.form.current]; }
+
+  function rules() {
+    const status = T.getStatus();
+    return (status && status.settings.rules) ||
+      { min_bet: 5, bet_step: 5, insurance_offered: true, double_after_split: true, split_by_value: true };
+  }
+
+  // ---- reading a round ----------------------------------------------------------
+
+  function value(rank) { return rank === "A" ? 1 : ["10", "J", "Q", "K"].includes(rank) ? 10 : Number(rank); }
+
+  function total(cards) {
+    const hard = cards.reduce((sum, rank) => sum + value(rank), 0);
+    const soft = cards.includes("A") && hard + 10 <= 21;
+    return { total: soft ? hard + 10 : hard, soft };
+  }
+
+  function stepOneDone(r) { return Number(r.main) > 0 && r.player[0] && r.player[1] && r.upcard; }
+  function needsSuits(r) { return Number(r.pp) > 0 && r.player[0] && r.player[0] === r.player[1]; }
+  function insuranceAsked(r) { return r.upcard === "A" && rules().insurance_offered; }
+
+  // Follows the player's hands the way the trainer's engine does, so the form can label split
+  // hands and know when the player's part is over. The server's check stays the judge.
+  function follow(r) {
+    const out = { hands: [], active: 0, over: false, waiting: false, splitAces: false, handOf: [] };
+    if (!stepOneDone(r)) return out;
+    const hands = [{ cards: [r.player[0], r.player[1]], done: false, fromSplit: false }];
+    out.hands = hands;
+    let secondCard = null;
+    const down = r.dealer[0];
+    if (total(r.player).total === 21 || (down && total([r.upcard, down]).total === 21)) out.over = true;
+
+    const advance = () => {
+      for (;;) {
+        const hand = hands[out.active];
+        if (!hand.done && total(hand.cards).total >= 21) hand.done = true;
+        if (!hand.done) return;
+        if (out.active + 1 === hands.length) { out.over = true; return; }
+        out.active += 1;
+        hands[out.active].cards.push(secondCard);
+        if (out.splitAces) hands[out.active].done = true;
+      }
+    };
+
+    r.actions.forEach((a, i) => {
+      out.handOf[i] = hands.length > 1 ? out.active + 1 : 0;
+      if (out.waiting || out.over) return;
+      const hand = hands[out.active];
+      if (a.action === "stand") {
+        hand.done = true;
+      } else if (a.action === "split") {
+        if (!a.cards[0] || !a.cards[1]) { out.waiting = true; return; }
+        const [first, second] = hand.cards;
+        out.splitAces = first === "A";
+        secondCard = a.cards[1];
+        hands.splice(0, 1, { cards: [first, a.cards[0]], done: out.splitAces, fromSplit: true },
+                     { cards: [second], done: false, fromSplit: true });
+      } else {
+        if (!a.card) { out.waiting = true; return; }
+        hand.cards.push(a.card);
+        if (a.action === "double") hand.done = true;
+      }
+      advance();
+    });
+    return out;
+  }
+
+  function canAct(r, f, action) {
+    if (!f.hands.length || f.over || f.waiting) return false;
+    const hand = f.hands[f.active];
+    if (action === "double") {
+      return hand.cards.length === 2 && !(hand.fromSplit && (f.splitAces || !rules().double_after_split));
+    }
+    if (action === "split") {
+      const [a, b] = hand.cards;
+      const pair = rules().split_by_value ? value(a) === value(b) : a === b;
+      return f.hands.length === 1 && hand.cards.length === 2 && pair;
+    }
+    return true;
+  }
+
+  // The round as the server reads it, or null while step 1 is not filled in.
+  function payload(r) {
+    if (!stepOneDone(r)) return null;
+    const actions = [];
+    for (const a of r.actions) {
+      if (a.action === "split" ? !(a.cards[0] && a.cards[1]) : a.action !== "stand" && !a.card) break;
+      actions.push(a.action === "split" ? { action: "split", cards: [...a.cards] }
+        : a.action === "stand" ? { action: "stand" } : { action: a.action, card: a.card });
+    }
+    const out = { main: Number(r.main), pp: Number(r.pp) || 0, fct: Number(r.fct) || 0,
+                  player: [...r.player], upcard: r.upcard, insurance: insuranceAsked(r) && r.insurance,
+                  actions, dealer: [...r.dealer] };
+    if (needsSuits(r) && r.suits[0] && r.suits[1]) out.suits = [...r.suits];
+    return out;
+  }
+
+  // Index of the round after which the chips ran out, or -1.
+  function bustOut() {
+    const { min_bet: minBet, bet_step: step } = rules();
+    return state.checks.findIndex((c) =>
+      c && c.complete && Math.floor(c.chips_after / step + 1e-9) * step < minBet);
+  }
+
+  function neededRounds() {
+    const ended = bustOut();
+    return ended >= 0 ? ended + 1 : ROUNDS;
+  }
+
+  function readyToAnalyze() {
+    const needed = neededRounds();
+    for (let i = 0; i < needed; i++) {
+      const check = state.checks[i];
+      if (!check || !check.ok || !check.complete) return false;
+    }
+    return true;
+  }
+
+  // ---- talking to the server -----------------------------------------------------
+
+  let checkTimer = null;
+  let checkNumber = 0;
+
+  function scheduleCheck() {
+    clearTimeout(checkTimer);
+    checkTimer = setTimeout(runCheck, 300);
+  }
+
+  async function runCheck() {
+    clearTimeout(checkTimer);
+    const number = ++checkNumber;
+    try {
+      const answer = await T.api("POST", "/api/review/check", { rounds: state.form.rounds.map(payload) }, { quiet: true });
+      if (number !== checkNumber) return;
+      state.checks = answer.rounds;
+    } catch (err) {
+      if (number !== checkNumber) return;
+      state.checks = [];
+    }
+    showChecks();
+  }
+
+  async function analyze() {
+    if (!readyToAnalyze() || state.analyzing) return;
+    const form = state.form;
+    const body = {
+      rounds: form.rounds.slice(0, neededRounds()).map(payload),
+      opponent_final: form.opponentFinal === "" ? null : Number(form.opponentFinal),
+      won: form.won === "won" ? true : form.won === "lost" ? false : null,
+    };
+    state.analyzing = true;
+    showChecks();
+    try {
+      state.report = await T.api("POST", "/api/review/analyze", body);
+      renderReport();
+      if (window.innerWidth < 760) view.report.scrollIntoView({ behavior: "smooth" });
+    } catch (err) {
+      /* the error strip already says why */
+    } finally {
+      state.analyzing = false;
+      showChecks();
+    }
+  }
+
+  // ---- what the user does (the demo hook calls these too) ---------------------------
+
+  // After anything in the form changes: keep it, check it, and drop a report that no longer fits.
+  function changed() {
+    save();
+    scheduleCheck();
+    if (state.report) { state.report = null; renderReport(); }
+    refresh();
+  }
+
+  function selectRound(i) {
+    if (i > bustOut() && bustOut() >= 0) return;
+    state.form.current = i;
+    state.slot = null;
+    save();
+    renderRound();
+  }
+
+  function selectSlot(slot) {
+    state.slot = slot;
+    refresh();
+  }
+
+  function setBet(name, amount) {
+    round()[name] = amount === "" ? "" : Number(amount);
+    const input = view.bets && view.bets[name];
+    if (input && input.value !== String(round()[name])) input.value = round()[name];
+    changed();
+  }
+
+  function setSuit(i, suit) { round().suits[i] = suit || null; changed(); }
+  function setInsurance(yes) { round().insurance = yes; changed(); }
+
+  function firstEmptyStartSlot(r) {
+    if (!r.player[0]) return { kind: "player", i: 0 };
+    if (!r.player[1]) return { kind: "player", i: 1 };
+    if (!r.upcard) return { kind: "upcard" };
+    return null;
+  }
+
+  // The rank picker: fill the selected slot, then move to the next one.
+  function pickRank(rank) {
+    const r = round();
+    let slot = state.slot || firstEmptyStartSlot(r) || { kind: "dealer", i: r.dealer.length };
+    let next = null;
+    if (slot.kind === "player") {
+      r.player[slot.i] = rank;
+      next = firstEmptyStartSlot(r);
+    } else if (slot.kind === "upcard") {
+      r.upcard = rank;
+      if (rank !== "A") r.insurance = false;
+      next = firstEmptyStartSlot(r);
+    } else if (slot.kind === "action") {
+      const a = r.actions[slot.i];
+      if (!a) return;
+      if (a.action === "split") {
+        a.cards[slot.j] = rank;
+        if (slot.j === 0 && !a.cards[1]) next = { kind: "action", i: slot.i, j: 1 };
+      } else {
+        a.card = rank;
+      }
+    } else {
+      r.dealer[Math.min(slot.i, r.dealer.length)] = rank;
+      next = { kind: "dealer", i: Math.min(slot.i, r.dealer.length - 1) + 1 };
+    }
+    if (!next && slot.kind !== "upcard" && follow(r).over) next = { kind: "dealer", i: r.dealer.length };
+    state.slot = next;
+    changed();
+  }
+
+  function addAction(action) {
+    const r = round();
+    if (!canAct(r, follow(r), action)) return;
+    const i = r.actions.length;
+    if (action === "split") r.actions.push({ action, cards: [null, null] });
+    else if (action === "stand") r.actions.push({ action });
+    else r.actions.push({ action, card: null });
+    state.slot = action === "stand" ? null : { kind: "action", i, j: 0 };
+    if (action === "stand" && follow(r).over) state.slot = { kind: "dealer", i: r.dealer.length };
+    changed();
+  }
+
+  function undoAction() {
+    round().actions.pop();
+    state.slot = null;
+    changed();
+  }
+
+  function undoDealer() {
+    round().dealer.pop();
+    state.slot = { kind: "dealer", i: round().dealer.length };
+    changed();
+  }
+
+  function setOpponent(amount) {
+    state.form.opponentFinal = amount === "" ? "" : Number(amount);
+    if (view.opponent.value !== String(amount)) view.opponent.value = amount;
+    save();
+  }
+
+  function setWon(choice) {
+    state.form.won = choice;
+    view.won.value = choice;
+    save();
+  }
+
+  function newReview() {
+    state.form = blankForm();
+    state.slot = null;
+    state.report = null;
+    state.checks = [];
+    save();
+    renderAll();
+    scheduleCheck();
+  }
+
+  // ---- drawing ---------------------------------------------------------------------
+
+  function sameSlot(a, b) {
+    return Boolean(a && b && a.kind === b.kind && (a.i || 0) === (b.i || 0) && (a.j || 0) === (b.j || 0));
+  }
+
+  function slotEl(rank, slot, label) {
+    const on = sameSlot(state.slot, slot);
+    return el("button", {
+      type: "button",
+      class: "rv-slot" + (rank ? " filled" : "") + (on ? " on" : ""),
+      "aria-label": label + (rank ? ": " + rank : ": empty"),
+      "aria-pressed": on ? "true" : "false",
+      onclick: () => selectSlot(slot),
+    }, rank || "+");
+  }
+
+  function line(who, ...children) {
+    return el("div", { class: "rv-line" }, el("span", { class: "rv-who" }, who), ...children);
+  }
+
+  function renderTabs() {
+    const ended = bustOut();
+    view.tabs.replaceChildren(...state.form.rounds.map((r, i) => {
+      const check = state.checks[i];
+      const off = ended >= 0 && i > ended;
+      const bad = check && !check.ok && stepOneDone(r) && !off;
+      const done = check && check.ok && check.complete;
+      const mark = bad ? " ⚠" : done ? " ✓" : "";
+      return el("button", {
+        type: "button",
+        class: "rv-tab" + (i === state.form.current ? " on" : "") + (bad ? " bad" : "") + (done ? " done" : ""),
+        disabled: off,
+        title: off ? "The chips ran out before this round." : null,
+        onclick: () => selectRound(i),
+      }, "Round " + (i + 1) + mark,
+      el("small", {}, done ? T.fmtChips(check.chips_after) : off ? "not played" : "—"));
+    }));
+  }
+
+  function betField(name, label) {
+    const input = el("input", {
+      type: "number", min: "0", step: String(rules().bet_step || 5), inputmode: "numeric",
+      value: round()[name] === "" ? "" : String(round()[name]),
+      oninput: (event) => setBet(name, event.target.value),
+    });
+    view.bets[name] = input;
+    return el("label", { class: "field" }, label, input);
+  }
+
+  // Step 1's cards: player cards, suit pickers for a Perfect Pairs pair, and the up card.
+  function renderStart() {
+    const r = round();
+    const parts = [
+      line("Your cards", slotEl(r.player[0], { kind: "player", i: 0 }, "Your first card"),
+        slotEl(r.player[1], { kind: "player", i: 1 }, "Your second card")),
+    ];
+    if (needsSuits(r)) {
+      const pickers = [0, 1].map((i) => el("select", {
+        "aria-label": "Suit of your " + (i ? "second" : "first") + " card",
+        onchange: (event) => setSuit(i, event.target.value),
+      }, el("option", { value: "" }, "Suit…"),
+      SUITS.map(([letter, name]) => el("option", { value: letter, selected: r.suits[i] === letter }, name))));
+      parts.push(line("Suits of your pair", ...pickers));
+    }
+    parts.push(line("Dealer showed", slotEl(r.upcard, { kind: "upcard" }, "Dealer's up card")));
+    view.start.replaceChildren(...parts);
+  }
+
+  function actionLabel(a, hand) {
+    return (hand ? "Hand " + hand + ": " : "") + DID[a.action];
+  }
+
+  // Step 2: insurance, what you did, and the dealer's cards.
+  function renderEnd() {
+    const r = round();
+    if (!stepOneDone(r)) {
+      view.end.replaceChildren(el("p", { class: "note" }, "Fill in step 1 first: your bet, your two cards and the dealer's up card."));
+      return;
+    }
+    const f = follow(r);
+    const parts = [];
+    if (insuranceAsked(r)) {
+      parts.push(line("Insurance",
+        el("button", { type: "button", class: "rv-move" + (r.insurance ? " on" : ""), onclick: () => setInsurance(true) }, "Yes"),
+        el("button", { type: "button", class: "rv-move" + (!r.insurance ? " on" : ""), onclick: () => setInsurance(false) }, "No")));
+    }
+    parts.push(line("What you did", ...["hit", "stand", "double", "split"].map((action) =>
+      el("button", { type: "button", class: "rv-move", disabled: !canAct(r, f, action), onclick: () => addAction(action) },
+        DO[action]))));
+
+    const list = r.actions.map((a, i) => {
+      const cards = a.action === "split"
+        ? [slotEl(a.cards[0], { kind: "action", i, j: 0 }, "Second card of hand 1"),
+           slotEl(a.cards[1], { kind: "action", i, j: 1 }, "Second card of hand 2")]
+        : a.action === "stand" ? [] : [slotEl(a.card, { kind: "action", i, j: 0 }, "Card for " + DO[a.action])];
+      return el("li", {}, el("span", {}, actionLabel(a, f.handOf[i]) + (a.action === "split" ? ", then the hands got" : "")), ...cards);
+    });
+    if (list.length) {
+      parts.push(el("ol", { class: "rv-actions" }, list));
+      parts.push(el("div", { class: "rv-line" },
+        el("span", { class: "rv-who" }, f.hands.map((h, i) =>
+          (f.hands.length > 1 ? "Hand " + (i + 1) + " " : "You have ") + total(h.cards).total).join(" · ")),
+        el("button", { type: "button", class: "btn rv-small", onclick: undoAction }, "Undo last move")));
+    }
+
+    const dealer = [r.upcard ? el("span", { class: "rv-slot filled fixed", title: "Up card" }, r.upcard) : null];
+    r.dealer.forEach((rank, i) => dealer.push(slotEl(rank, { kind: "dealer", i }, i ? "Dealer's card " + (i + 2) : "Dealer's down card")));
+    dealer.push(slotEl(null, { kind: "dealer", i: r.dealer.length }, r.dealer.length ? "Next dealer card" : "Dealer's down card"));
+    if (r.dealer.length) dealer.push(el("button", { type: "button", class: "btn rv-small", onclick: undoDealer }, "Undo"));
+    parts.push(line("Dealer's cards", ...dealer));
+    parts.push(el("p", { class: "note" }, "The down card first, then each card the dealer drew."));
+    view.end.replaceChildren(...parts);
+  }
+
+  // The line under the round: its result and chips, what is still missing, or what is wrong.
+  function renderOutcome() {
+    const i = state.form.current;
+    const r = round();
+    const check = state.checks[i];
+    const before = state.checks[i - 1];
+    let text = "";
+    let kind = "";
+    if (!stepOneDone(r)) {
+      text = "Not filled in yet.";
+    } else if (!check) {
+      text = "Checking…";
+    } else if (!check.ok) {
+      text = check.error;
+      kind = "miss";
+    } else if (check.complete) {
+      const net = check.net;
+      text = (net > 0 ? "You won " + T.fmtChips(net) : net < 0 ? "You lost " + T.fmtChips(-net) : "You broke even") +
+        ". Chips " + T.fmtChips(check.chips_after) + ".";
+      kind = "done";
+    } else if (before && before.chips_after === null) {
+      text = "Finish round " + i + " first to see the chips.";
+    } else {
+      const f = follow(r);
+      const missing = f.waiting ? "pick the card for your last move" : !f.over ? "add what you did"
+        : "add the dealer's cards";
+      text = "Chips before this round: " + T.fmtChips(check.chips_before) + ". Still to do: " + missing + ".";
+    }
+    view.outcome.className = "rv-outcome" + (kind ? " " + kind : "");
+    view.outcome.textContent = text;
+  }
+
+  function renderAnalyze() {
+    const ready = readyToAnalyze();
+    view.analyze.disabled = !ready || state.analyzing;
+    view.analyze.textContent = state.analyzing ? "Analyzing…" : "Analyze match";
+    const ended = bustOut();
+    view.analyzeNote.textContent = ready
+      ? (ended >= 0 && ended < ROUNDS - 1 ? "The chips ran out after round " + (ended + 1) + ", so the match ends there. " : "") +
+        "Every round adds up."
+      : "Analyze opens once every round of the match is in and adds up.";
+  }
+
+  function showChecks() {
+    renderTabs();
+    renderOutcome();
+    renderAnalyze();
+  }
+
+  function refresh() {
+    renderStart();
+    renderEnd();
+    showChecks();
+  }
+
+  function renderRound() {
+    view.bets = {};
+    view.fields.replaceChildren(betField("main", "Your bet"), betField("pp", "Perfect Pairs"), betField("fct", "4 Card Total"));
+    view.roundTitle.textContent = "Round " + (state.form.current + 1);
+    refresh();
+  }
+
+  function betText(main, pp, fct) {
+    const sides = [];
+    if (pp) sides.push(T.fmtChips(pp) + " Perfect Pairs");
+    if (fct) sides.push(T.fmtChips(fct) + " 4 Card Total");
+    return [T.fmtChips(main), sides.length ? el("small", {}, "+ " + sides.join(" + ")) : null];
+  }
+
+  function chance(p) { return el("small", {}, T.fmtChance(p) + " ahead"); }
+
+  function mark(fine, ...content) {
+    return el("span", { class: fine ? "ok" : "miss" }, ...content, fine ? " ✓" : "");
+  }
+
+  function count(n, word) { return n + " " + word + (n === 1 ? "" : "s"); }
+
+  function renderReport() {
+    const rep = state.report;
+    if (!rep) {
+      view.report.replaceChildren(
+        el("h2", {}, "The report"),
+        el("p", { class: "note" }, "Once every round is in and the chips add up, press Analyze match. " +
+          "The best bet and the best play for every round then appear here, next to what you did."),
+        el("p", { class: "rv-warn" }, "This works on a match that is over, taken as a whole. " +
+          "It does not give answers hand by hand while a match is running."));
+      return;
+    }
+    const rows = rep.rounds.map((r) => {
+      const b = r.bet;
+      const [bestMain, bestSides] = betText(b.best, b.best_pp, b.best_fct);
+      const plays = r.plays.length ? r.plays : null;
+      return el("tr", {},
+        el("td", {}, String(r.round), el("small", {}, T.fmtChips(r.chips_after))),
+        el("td", {}, ...betText(b.yours, b.pp, b.fct), chance(b.your_chance)),
+        el("td", {}, mark(b.fine, bestMain), bestSides, chance(b.best_chance)),
+        el("td", {}, plays ? plays.map((p) => el("div", { class: "rv-play" },
+          DID[p.yours] || p.yours,
+          el("small", {}, (r.plays.some((q) => q.hand === 2) ? "Hand " + p.hand + ", " : "") + p.spot),
+          chance(p.your_chance))) : el("span", { class: "note" }, "No choice")),
+        el("td", {}, plays ? plays.map((p) => el("div", { class: "rv-play" },
+          mark(p.fine, DO[p.best] || p.best), chance(p.best_chance))) : "—"));
+    });
+    const misses = rep.off_bets + rep.off_plays;
+    const form = state.form;
+    const other = form.opponentFinal === "" ? "" : " The other player finished on " + T.fmtChips(form.opponentFinal) + ".";
+    const result = form.won === "won" ? " You won the match." : form.won === "lost" ? " You lost the match." : "";
+    const miss = rep.biggest_miss;
+    view.report.replaceChildren(
+      el("h2", {}, "The report"),
+      el("div", { class: "scroll-x" }, el("table", { class: "table rv-table" },
+        el("thead", {}, el("tr", {}, ["Round", "Your bet", "Best bet", "Your play", "Best play"].map((h) => el("th", {}, h)))),
+        el("tbody", {}, rows))),
+      el("p", { class: "note rv-gap" }, "Each % is how often that choice finishes the match ahead. The small number under the round is your chips after it."),
+      el("div", { class: "rv-summary" },
+        el("p", {}, "You finished on ", el("b", {}, T.fmtChips(rep.final_chips)), "." + other + result + " ",
+          misses ? count(rep.off_bets, "bet") + " and " + count(rep.off_plays, "play") + " were off the best line."
+            : "Every bet and play was on the best line."),
+        miss
+          ? el("div", { class: "grade" }, el("strong", {}, "Biggest miss"), el("span", { class: "rv-miss-text" }, miss.text),
+              el("span", { class: "note" }, "It cost about " + Math.max(1, Math.round(miss.cost * 100)) + " points of your chance to finish ahead."))
+          : el("div", { class: "grade fine" }, el("strong", {}, "No misses"), el("span", { class: "note" }, "Every choice matched the best line.")),
+        el("p", { class: "note rv-gap" }, T.BEST_NOTE)),
+      el("button", { type: "button", class: "btn rv-gap", onclick: newReview }, "Start a new review"));
+  }
+
+  function renderAll() {
+    const section = document.getElementById("tab-review");
+    view.tabs = el("div", { class: "rv-tabs", role: "group", "aria-label": "Rounds" });
+    view.roundTitle = el("span", {});
+    view.fields = el("div", { class: "rv-fields" });
+    view.start = el("div", {});
+    view.end = el("div", {});
+    view.outcome = el("div", { class: "rv-outcome", "aria-live": "polite" });
+    view.analyze = el("button", { type: "button", class: "btn primary", onclick: analyze }, "Analyze match");
+    view.analyzeNote = el("p", { class: "note" });
+    view.report = el("div", { class: "box rv-report" });
+
+    const opponent = view.opponent = el("input", {
+      type: "number", min: "0", step: "5", inputmode: "numeric", placeholder: "—",
+      value: state.form.opponentFinal === "" ? "" : String(state.form.opponentFinal),
+      oninput: (event) => setOpponent(event.target.value),
+    });
+    const won = view.won = el("select", { onchange: (event) => setWon(event.target.value) },
+      [["won", "I won"], ["lost", "I lost"], ["unsure", "Not sure"]].map(([v, text]) =>
+        el("option", { value: v, selected: state.form.won === v }, text)));
+
+    const entry = el("div", { class: "box rv-entry" },
+      view.tabs,
+      el("div", { class: "rv-stage" },
+        el("div", { class: "rv-label" }, view.roundTitle, " · Step 1 · Start of the hand"),
+        view.fields, view.start),
+      el("div", { class: "rv-stage" },
+        el("div", { class: "rv-label" }, "Step 2 · How it ended"),
+        view.end, view.outcome),
+      el("div", { class: "rv-label" }, "Pick a card for the highlighted slot (or type A, 2–9, T, J, Q, K)"),
+      el("div", { class: "rv-picker" }, RANKS.map((rank) =>
+        el("button", { type: "button", class: "rv-pick", onclick: () => pickRank(rank) }, rank))),
+      el("div", { class: "rv-finish" },
+        el("label", { class: "field" }, "Other player's final chips, if you saw them", opponent),
+        el("label", { class: "field" }, "How it went", won),
+        view.analyze),
+      view.analyzeNote,
+      el("button", { type: "button", class: "btn rv-small rv-gap", onclick: newReview }, "Start a new review"));
+
+    section.replaceChildren(
+      el("div", { class: "rv-head" },
+        el("h2", {}, "Go back over a finished match"),
+        el("p", { class: "note" }, "Put in what happened in every round. The trainer checks the chips add up, " +
+          "then shows the best bet and the best play for each round next to what you did.")),
+      el("div", { class: "rv-grid" }, entry, view.report));
+    renderRound();
+    renderReport();
+  }
+
+  // ---- keys ------------------------------------------------------------------------
+
+  document.addEventListener("keydown", (event) => {
+    if (T.shownTab() !== "review" || event.ctrlKey || event.metaKey || event.altKey) return;
+    if (/^(INPUT|SELECT|TEXTAREA)$/.test(event.target.tagName)) return;
+    const key = event.key.toLowerCase();
+    const rank = KEYS[key] || (/^[2-9]$/.test(key) ? key : null);
+    if (!rank) return;
+    event.preventDefault();
+    pickRank(rank);
+  });
+
+  // ---- the test hook: /#review-demo --------------------------------------------------
+
+  // The five-round example from the mockup (tests/test_review.py, MATCH); it ends on 1,700.
+  const DEMO = [
+    { main: 100, player: ["5", "6"], up: "6", actions: [["double", "K"]], dealer: ["10", "8"] },
+    { main: 300, player: ["K", "Q"], up: "8", actions: [["stand"]], dealer: ["9"] },
+    { main: 200, player: ["9", "7"], up: "10", actions: [["stand"]], dealer: ["9"] },
+    { main: 100, player: ["A", "7"], up: "9", actions: [["stand"]], dealer: ["10"] },
+    { main: 500, player: ["K", "Q"], up: "6", actions: [["stand"]], dealer: ["10", "7"] },
+  ];
+
+  async function demo() {
+    newReview();
+    DEMO.forEach((m, i) => {
+      selectRound(i);
+      setBet("main", m.main);
+      [...m.player, m.up].forEach(pickRank);
+      for (const [action, card] of m.actions) {
+        addAction(action);
+        if (card) pickRank(card);
+      }
+      selectSlot({ kind: "dealer", i: 0 });
+      m.dealer.forEach(pickRank);
+    });
+    setOpponent(1450);
+    setWon("won");
+    await runCheck();
+    await analyze();
+    if (state.report) document.title = "review done";  }
+
+  // ---- start -----------------------------------------------------------------------
+
+  renderAll();
+  scheduleCheck();
+  T.onStatus(() => { if (!state.checks.length) return; showChecks(); });
+  if (location.hash === "#review-demo") {
+    let demoStarted = false;
+    T.onReady(() => { if (!demoStarted) { demoStarted = true; demo(); } });
+  }
+})();

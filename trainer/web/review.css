@@ -1,0 +1,176 @@
+/* The review and settings screens. Shared pieces (buttons, fields, boxes, the table) live in style.css. */
+
+/* ---- review: layout ---- */
+
+.rv-head { margin-bottom: 1rem; }
+.rv-head .note { max-width: 70ch; }
+.rv-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+.rv-grid > .box { margin-bottom: 0; min-width: 0; }
+.rv-gap { margin-top: 0.75rem; }
+.rv-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+
+/* ---- review: round tabs ---- */
+
+.rv-tabs { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.9rem; }
+.rv-tab {
+  font: inherit;
+  font-size: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 5.2rem;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--muted);
+  cursor: pointer;
+}
+.rv-tab small { font-size: 0.72rem; }
+.rv-tab.done { color: var(--text); }
+.rv-tab.bad { color: var(--bad); border-color: var(--bad); }
+.rv-tab.on { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+.rv-tab[disabled] { opacity: 0.4; cursor: default; }
+
+/* ---- review: the two steps ---- */
+
+.rv-stage {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.75rem;
+  margin-bottom: 0.75rem;
+  background: var(--bg);
+}
+.rv-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; margin-bottom: 0.4rem; }
+.rv-fields input { width: 100%; }
+.rv-line { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; font-size: 0.9rem; }
+.rv-who { flex: 0 0 8.5rem; color: var(--muted); font-size: 0.82rem; }
+.rv-line select { font-size: 0.85rem; }
+
+.rv-slot {
+  font: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 46px;
+  padding: 0;
+  border: 1px dashed var(--muted);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 700;
+  cursor: pointer;
+}
+.rv-slot.filled {
+  border: 1px solid var(--line);
+  background: var(--card-face);
+  color: var(--card-text);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+.rv-slot.fixed { cursor: default; opacity: 0.75; }
+.rv-slot.on { outline: 3px solid var(--accent); outline-offset: 1px; }
+
+.rv-move {
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.3rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+}
+.rv-move:hover:not([disabled]) { border-color: var(--accent); }
+.rv-move.on { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.rv-move[disabled] { opacity: 0.35; cursor: default; }
+.btn.rv-small { padding: 0.25rem 0.6rem; font-size: 0.8rem; }
+
+.rv-actions { margin: 0.5rem 0 0; padding-left: 1.4rem; font-size: 0.9rem; }
+.rv-actions li { margin-bottom: 0.3rem; }
+.rv-actions li > * { vertical-align: middle; }
+.rv-actions li > span { display: inline-block; min-width: 8rem; margin-right: 0.3rem; }
+.rv-actions .rv-slot { margin-right: 0.3rem; }
+
+.rv-outcome {
+  margin-top: 0.7rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.rv-outcome.done { color: var(--text); }
+.rv-outcome.miss { color: var(--bad); }
+
+/* ---- review: picker and finish ---- */
+
+.rv-picker { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-bottom: 1rem; }
+.rv-pick {
+  font: inherit;
+  font-weight: 700;
+  min-width: 38px;
+  height: 38px;
+  padding: 0 0.35rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+}
+.rv-pick:hover { border-color: var(--accent); }
+
+.rv-finish { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.6rem; margin-bottom: 0.4rem; }
+.rv-finish .field:first-child { flex: 1 1 14rem; }
+.rv-finish input { width: 100%; }
+
+/* ---- review: the report ---- */
+
+.rv-warn {
+  margin-top: 0.75rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--line);
+  border-left: 5px solid var(--warn);
+  border-radius: 8px;
+  font-size: 0.88rem;
+}
+.rv-table { font-size: 0.88rem; }
+.rv-table .ok, .rv-table .miss { white-space: nowrap; }
+.rv-table td small { display: block; color: var(--muted); font-size: 0.75rem; font-weight: 400; }
+.rv-play + .rv-play { margin-top: 0.45rem; padding-top: 0.45rem; border-top: 1px dashed var(--line); }
+.rv-summary {
+  margin-top: 0.9rem;
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+}
+.rv-summary .grade strong { display: block; }
+.rv-miss-text { display: block; }
+
+/* ---- settings ---- */
+
+.st-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 0.75rem; }
+.st-checks { display: flex; flex-direction: column; gap: 0.45rem; margin-top: 0.8rem; }
+.st-check { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; }
+.st-check input { width: 1.05rem; height: 1.05rem; margin: 0; }
+.st-sub { margin-top: 1rem; }
+.st-weights { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr)); gap: 0.6rem; }
+.st-weights input { width: 100%; }
+.st-default { font-size: 0.75rem; }
+.st-reset { margin-top: 1rem; }
+.st-save { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; margin-bottom: 2rem; }
+.st-save .note:last-child { flex-basis: 100%; }
