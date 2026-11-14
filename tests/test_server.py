@@ -1,3 +1,4 @@
+import http.client
 import json
 import threading
 import urllib.error
@@ -6,7 +7,7 @@ import urllib.request
 import pytest
 
 from tests.test_review import MATCH
-from trainer.server import App, make_server
+from trainer.server import App, make_server, running_trainer
 
 
 @pytest.fixture
@@ -144,10 +145,80 @@ def test_pages_over_a_real_socket(app):
         with pytest.raises(urllib.error.HTTPError) as err:
             urllib.request.urlopen(base + "/static/../server.py")
         assert err.value.code == 404
-        request = urllib.request.Request(base + "/api/practice/start", data=b"{ not json", method="POST")
+        request = urllib.request.Request(base + "/api/practice/start", data=b"{ not json", method="POST",
+                                         headers={"Content-Type": "application/json"})
         with pytest.raises(urllib.error.HTTPError) as err:
             urllib.request.urlopen(request)
         assert err.value.code == 400
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+# ---- found by the final review ------------------------------------------------------
+
+def _serve(app):
+    server = make_server(app, port=0)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return server, server.server_address[1]
+
+
+def _raw(port, method, path, headers, body=b""):
+    """One request with exactly these headers (no automatic Host)."""
+    conn = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+    conn.putrequest(method, path, skip_host=True, skip_accept_encoding=True)
+    for name, value in headers.items():
+        conn.putheader(name, value)
+    conn.endheaders(body)
+    response = conn.getresponse()
+    response.read()
+    conn.close()
+    return response.status
+
+
+def test_two_trainers_cannot_share_a_port(app):
+    first = make_server(app, port=0)
+    try:
+        with pytest.raises(OSError):
+            make_server(app, port=first.server_address[1])
+    finally:
+        first.server_close()
+
+
+def test_a_trainer_that_is_already_running_is_found(app):
+    server, port = _serve(app)
+    try:
+        assert running_trainer(port) == f"http://127.0.0.1:{port}"
+    finally:
+        server.shutdown()
+        server.server_close()
+    assert running_trainer(port) is None
+
+
+def test_a_click_that_arrives_twice_is_a_400(app):
+    start = app.handle("POST", "/api/practice/start", {"mode": "coach", "seed": 5})[1]
+    assert app.handle("POST", "/api/practice/bet", {"main": 100, "step": start["step"]})[0] == 200
+    code, body = app.handle("POST", "/api/practice/bet", {"main": 100, "step": start["step"]})
+    assert code == 400 and "twice" in body["error"]
+    assert app.handle("POST", "/api/practice/action", {"action": "hit", "step": "soon"})[0] == 400
+
+
+def test_requests_from_other_web_pages_are_refused(app):
+    server, port = _serve(app)
+    start = b'{"mode": "coach", "seed": 5}'
+    ours = {"Host": f"127.0.0.1:{port}", "Content-Type": "application/json"}
+    try:
+        assert _raw(port, "POST", "/api/practice/start", {**ours, "Content-Length": str(len(start))}, start) == 200
+        # a form or a plain fetch from another page cannot send JSON without asking first
+        assert _raw(port, "POST", "/api/settings", {**ours, "Content-Type": "text/plain", "Content-Length": "2"}, b"{}") == 415
+        # a page that reached this computer under some other name
+        assert _raw(port, "GET", "/api/status", {"Host": "evil.example"}) == 403
+        assert _raw(port, "GET", "/", {"Host": "evil.example"}) == 403
+        assert _raw(port, "POST", "/api/settings", {**ours, "Host": "evil.example:80", "Content-Length": "2"}, b"{}") == 403
+        assert _raw(port, "GET", "/api/status", {"Host": f"localhost:{port}"}) == 200
+        # nonsense lengths are refused at once instead of tying up a thread
+        assert _raw(port, "POST", "/api/practice/next", {**ours, "Content-Length": "-5"}) == 400
+        assert _raw(port, "POST", "/api/practice/next", {**ours, "Content-Length": "lots"}) == 400
     finally:
         server.shutdown()
         server.server_close()

@@ -116,6 +116,7 @@ class PracticeMatch:
         self._classes: list[int] = []                  # brain.round_class of finished rounds
         self._last_bet: dict | None = None
         self._forfeit = False
+        self._step = 0                                 # goes up with every change; names the screen a click was made on
         self._clock_started = False
         self._used = 0.0                               # running seconds banked while stopped
         self._since: float | None = None               # when the clock last started running
@@ -126,8 +127,9 @@ class PracticeMatch:
         self._tick()
         return self._snapshot()
 
-    def bet(self, main, pp=0.0, fct=0.0) -> dict:
+    def bet(self, main, pp=0.0, fct=0.0, step=None) -> dict:
         self._tick()
+        self._check_step(step)
         self._require("bet")
         round_ = Round(self.rules, self._shoes[self._round_no - 1], self._chips, main, pp, fct)
         self._round = round_
@@ -135,10 +137,12 @@ class PracticeMatch:
                         "player": list(round_.hands[0].cards), "decisions": [], "grades": None}
         self._last_bet = {"main": round_.main_bet, "pp": round_.pp_bet, "fct": round_.fct_bet}
         self._sync()
+        self._step += 1
         return self._snapshot()
 
-    def act(self, action: str) -> dict:
+    def act(self, action: str, step=None) -> dict:
         self._tick()
+        self._check_step(step)
         self._require("insurance", "play")
         round_ = self._round
         hand_index = round_.active
@@ -152,10 +156,12 @@ class PracticeMatch:
         self._record["decisions"].append({"spot": spot, "chosen": action, "hand": hand_index + 1,
                                           "text": _hand_text(total, soft, round_.upcard)})
         self._sync()
+        self._step += 1
         return self._snapshot()
 
-    def next_round(self) -> dict:
+    def next_round(self, step=None) -> dict:
         self._tick()
+        self._check_step(step)
         self._require("round_over")
         if self._round_no >= self.rules.rounds or self._chips < self.rules.min_bet:
             self._end_match()
@@ -164,6 +170,7 @@ class PracticeMatch:
             self._round = self._record = None
             self._phase = "bet"
             self._run_clock()
+        self._step += 1
         return self._snapshot()
 
     def current_view(self) -> HandView:
@@ -172,6 +179,13 @@ class PracticeMatch:
         return self._round.view()
 
     # ---- phases ----------------------------------------------------------------------
+
+    def _check_step(self, step) -> None:
+        """Refuse a click made on a screen that has since changed (the second half of a double-click)."""
+        if step is None or self._phase == "match_over":
+            return
+        if step != self._step:
+            raise TrainerError("That click came twice, so the second one was ignored.")
 
     def _require(self, *phases: str) -> None:
         if self._phase in phases:
@@ -202,6 +216,7 @@ class PracticeMatch:
     def _end_match(self, forfeit: bool = False) -> None:
         self._forfeit = forfeit
         self._phase = "match_over"
+        self._step += 1
         self._stop_clock()
 
     # ---- the clock -------------------------------------------------------------------
@@ -293,6 +308,7 @@ class PracticeMatch:
         return {
             "mode": self.mode,
             "phase": self._phase,
+            "step": self._step,
             "round": self._round_no,
             "rounds": self.rules.rounds,
             "chips": r.chips if self._phase in ("insurance", "play") else self._chips,

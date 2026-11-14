@@ -69,8 +69,8 @@
     try {
       response = await fetch(path, {
         method,
-        headers: body === undefined ? {} : { "Content-Type": "application/json" },
-        body: body === undefined ? undefined : JSON.stringify(body),
+        headers: method === "GET" ? {} : { "Content-Type": "application/json" },
+        body: method === "GET" ? undefined : JSON.stringify(body === undefined ? {} : body),
       });
     } catch (err) {
       const message = "The trainer is not answering. Is its window still open?";

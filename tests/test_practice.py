@@ -106,3 +106,21 @@ def test_opponent_total_is_a_straight_replay(quick_brain):
     s = play_book(PracticeMatch(R, quick_brain, [FLAT], "match", seed=1, shoes=shoes))
     assert s["summary"]["opponent"] == 500.0 and s["summary"]["opponent_name"] == "Flat 100, plays by the book"
     assert s["summary"]["outcome"] == "level"
+
+
+def test_a_click_that_arrives_twice_is_refused(quick_brain):
+    # 9 against 6; each hit brings a small card
+    m = PracticeMatch(R, quick_brain, [FLAT], "coach", seed=1, shoes=[shoe("5S", "6H", "4D", "KC", "2S", "3S", "9S")] * 5)
+    s = m.state()
+    s = m.bet(100.0, step=s["step"])
+    after_hit = m.act("hit", step=s["step"])
+    assert after_hit["step"] > s["step"] and len(after_hit["hands"][0]["cards"]) == 3
+    with pytest.raises(TrainerError, match="twice"):
+        m.act("hit", step=s["step"])                      # the same click again
+    assert m.state()["hands"][0]["cards"] == after_hit["hands"][0]["cards"]
+    over = m.act("stand", step=after_hit["step"])
+    assert over["phase"] == "round_over"
+    with pytest.raises(TrainerError, match="twice"):
+        m.next_round(step=after_hit["step"])
+    assert m.next_round(step=over["step"])["phase"] == "bet"
+    assert m.bet(100.0)["phase"] == "play"                # no step given: nothing to compare, as before

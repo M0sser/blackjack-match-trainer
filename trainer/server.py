@@ -8,8 +8,10 @@ from __future__ import annotations
 import json
 import os
 import secrets
+import sys
 import threading
 import traceback
+import urllib.request
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -22,6 +24,8 @@ from trainer.review import analyze_match, check_rounds, save_review
 from trainer.settings import MODES, Settings, load_settings, population_from, save_settings
 
 WEB_DIR = Path(__file__).resolve().parent / "web"
+PORTS = range(8721, 8727)
+MAX_BODY = 2_000_000
 NOT_READY = "Still working out the best bets. This takes a few minutes the first time."
 CRASHED = "Something went wrong inside the trainer."
 CONTENT_TYPES = {".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8",
@@ -31,6 +35,14 @@ CONTENT_TYPES = {".html": "text/html; charset=utf-8", ".css": "text/css; charset
 
 class _NotReady(Exception):
     pass
+
+
+def _step(body: dict):
+    """The step the page was showing when the click was made, if it said."""
+    step = body.get("step")
+    if step is not None and (isinstance(step, bool) or not isinstance(step, int)):
+        raise TrainerError("That request was not understood.")
+    return step
 
 
 def _amount(body: dict, name: str, default=None) -> float:
@@ -127,13 +139,13 @@ class App:
         if route == ("POST", "/api/practice/bet"):
             main, pp, fct = _amount(body, "main"), _amount(body, "pp", 0), _amount(body, "fct", 0)
             with self.lock:
-                return 200, self._match().bet(main, pp, fct)
+                return 200, self._match().bet(main, pp, fct, step=_step(body))
         if route == ("POST", "/api/practice/action"):
             with self.lock:
-                return 200, self._match().act(str(body.get("action", "")))
+                return 200, self._match().act(str(body.get("action", "")), step=_step(body))
         if route == ("POST", "/api/practice/next"):
             with self.lock:
-                return 200, self._match().next_round()
+                return 200, self._match().next_round(step=_step(body))
         if route == ("POST", "/api/review/check"):
             return 200, {"rounds": check_rounds(self._rules(), self._rounds(body))}
         if route == ("POST", "/api/review/analyze"):
@@ -222,7 +234,18 @@ def _handler_for(app: App):
                 return
             self._send(200, target.read_bytes(), CONTENT_TYPES[target.suffix])
 
+        def _addressed_to_this_computer(self) -> bool:
+            """False for a page that reached the trainer under some other name than this computer's own."""
+            host = (self.headers.get("Host") or "").strip().lower()
+            name = host if host.endswith("]") else host.rsplit(":", 1)[0]
+            if name in ("127.0.0.1", "localhost", "[::1]"):
+                return True
+            self._send(403, b"Not allowed", "text/plain; charset=utf-8")
+            return False
+
         def do_GET(self) -> None:
+            if not self._addressed_to_this_computer():
+                return
             path = self.path.split("?", 1)[0]
             if path.startswith("/api/"):
                 self._send_json(*app.handle("GET", path, None))
@@ -230,9 +253,19 @@ def _handler_for(app: App):
                 self._static(path)
 
         def do_POST(self) -> None:
+            if not self._addressed_to_this_computer():
+                return
             path = self.path.split("?", 1)[0]
+            # Only the trainer's own page sends JSON; a form or a plain request from another
+            # web page cannot, so it is turned away before anything changes.
+            kind = (self.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
+            if kind != "application/json":
+                self._send_json(415, {"error": "That request was not understood."})
+                return
             try:
                 length = int(self.headers.get("Content-Length") or 0)
+                if not 0 <= length <= MAX_BODY:
+                    raise ValueError("unreasonable length")
                 raw = self.rfile.read(length) if length else b""
                 body = json.loads(raw.decode("utf-8")) if raw.strip() else {}
             except (ValueError, UnicodeDecodeError):
@@ -245,6 +278,7 @@ def _handler_for(app: App):
 
 class _Server(ThreadingHTTPServer):
     daemon_threads = True
+    allow_reuse_address = False    # on Windows "reuse" would let a second trainer share the port
     request_queue_size = 64     # a browser opens several connections at once; the default line holds 5
 
 
@@ -252,11 +286,29 @@ def make_server(app: App, port: int = 8721) -> ThreadingHTTPServer:
     return _Server(("127.0.0.1", port), _handler_for(app))
 
 
+def running_trainer(port: int) -> str | None:
+    """The address of a trainer already answering on this port, or None."""
+    address = f"http://127.0.0.1:{port}"
+    try:
+        with urllib.request.urlopen(address + "/api/status", timeout=1.5) as response:
+            answer = json.loads(response.read().decode("utf-8"))
+    except (OSError, ValueError):
+        return None
+    return address if isinstance(answer, dict) and "brain" in answer else None
+
+
 def main() -> None:
     data_dir = Path(__file__).resolve().parent.parent / "data"
+    for port in PORTS:                  # opened twice? show the one that is already running
+        address = running_trainer(port)
+        if address:
+            print(f"Match Trainer is already running at {address}")
+            if not os.environ.get("TRAINER_NO_BROWSER"):
+                webbrowser.open(address)
+            return
     app = App(data_dir)
     server = None
-    for port in range(8721, 8727):
+    for port in PORTS:
         try:
             server = make_server(app, port)
             break
@@ -265,7 +317,7 @@ def main() -> None:
     if server is None:
         print("Match Trainer could not start: ports 8721 to 8726 are all in use. "
               "Close other copies of the trainer and try again.")
-        return
+        sys.exit(1)
     app.start_brain()
     address = f"http://127.0.0.1:{server.server_address[1]}"
     print(f"Match Trainer is running at {address}")

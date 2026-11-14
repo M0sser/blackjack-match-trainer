@@ -62,14 +62,14 @@
 
   const loadState = () => request("GET", "/api/practice/state", undefined, true);
   const startMatch = () => request("POST", "/api/practice/start", { mode: chosenMode() });
-  const nextRound = () => request("POST", "/api/practice/next", {});
+  const nextRound = () => request("POST", "/api/practice/next", { step: state.match.step });
 
   function deal() {
     if (state.draft.main <= 0) {
       T.showError("Add chips to your main bet first.");
       return;
     }
-    request("POST", "/api/practice/bet", { ...state.draft });
+    request("POST", "/api/practice/bet", { ...state.draft, step: state.match.step });
   }
 
   function act(action) {
@@ -77,7 +77,7 @@
       T.showError(ACTIONS[action] + " is not possible right now.");
       return;
     }
-    request("POST", "/api/practice/action", { action });
+    request("POST", "/api/practice/action", { action, step: state.match.step });
   }
 
   // ---- the bet being built ---------------------------------------------------
@@ -172,7 +172,7 @@
   }
 
   function onKey(event) {
-    if (event.ctrlKey || event.altKey || event.metaKey) return;
+    if (event.ctrlKey || event.altKey || event.metaKey || event.repeat) return;
     if (!state.ready || !state.loaded || T.shownTab() !== "practice") return;
     if (event.target instanceof Element && event.target.closest("input, select, textarea")) return;
     const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
@@ -213,8 +213,10 @@
 
   function button(label, key, onclick, options) {
     const opts = options || {};
+    // The second click of a double-click would land on whatever button is drawn next, so drop it.
+    const once = (event) => { if (event.detail <= 1) onclick(); };
     return el("button", { class: "btn " + (opts.cls || ""), type: "button", disabled: !!opts.disabled,
-      onclick, title: key ? "Key: " + key : null }, label, key ? el("kbd", {}, key) : null);
+      onclick: once, title: key ? "Key: " + key : null }, label, key ? el("kbd", {}, key) : null);
   }
 
   function signed(amount) {
