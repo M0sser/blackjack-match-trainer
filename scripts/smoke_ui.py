@@ -93,6 +93,12 @@ def main() -> int:
     try:
         with tempfile.TemporaryDirectory() as scratch:
             dom = run_edge(edge, Path(scratch) / "profile-dom", base + hook, "--dump-dom")
+            tries = 1
+            if needed[0] not in dom:
+                # Headless Edge on a brand-new profile now and then drops a script request while it
+                # starts up. One more go tells that apart from a page that is really broken.
+                dom = run_edge(edge, Path(scratch) / "profile-dom-2", base + hook, "--dump-dom")
+                tries = 2
             # Picture the page exactly as it was dumped: the same markup with its scripts taken
             # out (so nothing re-runs) and its styles still loaded from the running trainer.
             frozen = re.sub(r"<script\b[^>]*>.*?</script>", "", dom, flags=re.S)
@@ -113,7 +119,7 @@ def main() -> int:
         print("SMOKE FAILED (" + name + "): " + "; ".join(problems))
         print(f"page saved to {ROOT / 'data' / 'smoke' / (name + '.html')}")
         return 1
-    print(f"SMOKE OK ({name}); screenshot: {shot}")
+    print(f"SMOKE OK ({name}){' on the second try' if tries == 2 else ''}; screenshot: {shot}")
     return 0
 
 

@@ -198,8 +198,9 @@ def _handler_for(app: App):
     class Handler(BaseHTTPRequestHandler):
         server_version = "MatchTrainer"
 
-        def log_message(self, *args) -> None:       # keep the console quiet
-            pass
+        def log_message(self, format, *args) -> None:
+            if os.environ.get("TRAINER_LOG_REQUESTS"):      # quiet unless asked, for tracking down page problems
+                print("request:", format % args, flush=True)
 
         def _send(self, code: int, content: bytes, content_type: str) -> None:
             self.send_response(code)
@@ -242,10 +243,13 @@ def _handler_for(app: App):
     return Handler
 
 
+class _Server(ThreadingHTTPServer):
+    daemon_threads = True
+    request_queue_size = 64     # a browser opens several connections at once; the default line holds 5
+
+
 def make_server(app: App, port: int = 8721) -> ThreadingHTTPServer:
-    server = ThreadingHTTPServer(("127.0.0.1", port), _handler_for(app))
-    server.daemon_threads = True
-    return server
+    return _Server(("127.0.0.1", port), _handler_for(app))
 
 
 def main() -> None:

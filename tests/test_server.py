@@ -107,6 +107,33 @@ def test_unknown_routes_and_crashes(app, monkeypatch):
     assert code == 500 and "Traceback" not in body["error"]
 
 
+def test_many_requests_at_once_are_all_answered(app):
+    # a browser asks for the page's seven files at the same moment; none may be turned away
+    server = make_server(app, port=0)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    url = f"http://127.0.0.1:{server.server_address[1]}/static/app.js"
+    count = 60
+    start, answers = threading.Barrier(count), []
+
+    def fetch():
+        start.wait()
+        try:
+            answers.append(urllib.request.urlopen(url, timeout=20).status)
+        except Exception as err:
+            answers.append(repr(err))
+
+    threads = [threading.Thread(target=fetch) for _ in range(count)]
+    try:
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+    finally:
+        server.shutdown()
+        server.server_close()
+    assert answers == [200] * count
+
+
 def test_pages_over_a_real_socket(app):
     server = make_server(app, port=0)
     threading.Thread(target=server.serve_forever, daemon=True).start()
