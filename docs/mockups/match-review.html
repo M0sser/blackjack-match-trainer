@@ -1,0 +1,162 @@
+<style>
+  .rv-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 1rem; align-items: start; }
+  .rv-grid .mockup { margin-bottom: 0; }
+  .rv-grid .mockup-header { font-size: 0.85rem; font-weight: 600; color: var(--text-primary); }
+  .rv-grid .mockup-header span { font-weight: 400; color: var(--text-secondary); }
+  .rv-grid .mockup-body { padding: 1rem; }
+
+  .rv-tabs { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.9rem; }
+  .rv-tabs span { font-size: 0.75rem; padding: 0.3rem 0.6rem; border-radius: 999px; border: 1px solid var(--border); color: var(--text-secondary); }
+  .rv-tabs span.done { color: var(--text-primary); }
+  .rv-tabs span.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+
+  .rv-stage { border: 1px solid var(--border); border-radius: 10px; padding: 0.75rem; margin-bottom: 0.75rem; background: var(--bg-primary); }
+  .rv-fields { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-bottom: 0.6rem; }
+  .rv-field { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 0.35rem 0.55rem; font-size: 0.72rem; color: var(--text-secondary); display: flex; flex-direction: column; }
+  .rv-field b { font-size: 0.95rem; color: var(--text-primary); }
+  .rv-line { display: flex; align-items: center; gap: 0.45rem; margin-top: 0.45rem; font-size: 0.82rem; flex-wrap: wrap; }
+  .rv-who { width: 8.5rem; color: var(--text-secondary); font-size: 0.78rem; }
+  .rv-card { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 44px; background: #fff; color: #1d1d1f; border: 1px solid #c7c7cc; border-radius: 5px; font-weight: 700; font-size: 0.9rem; box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+  .rv-add { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 44px; border: 1px dashed var(--border); border-radius: 5px; color: var(--text-tertiary); font-size: 1rem; }
+  .rv-move { font-size: 0.78rem; font-weight: 600; padding: 0.25rem 0.6rem; border-radius: 6px; border: 1px solid var(--border); color: var(--text-secondary); background: var(--bg-secondary); }
+  .rv-move.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .rv-outcome { margin-top: 0.65rem; padding-top: 0.55rem; border-top: 1px solid var(--border); font-size: 0.82rem; font-weight: 600; }
+
+  .rv-picker { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-bottom: 0.9rem; }
+  .rv-picker span { display: inline-flex; align-items: center; justify-content: center; min-width: 30px; height: 32px; padding: 0 0.3rem; border-radius: 6px; background: var(--bg-tertiary); font-size: 0.8rem; font-weight: 600; }
+
+  .rv-end { display: flex; align-items: stretch; gap: 0.6rem; flex-wrap: wrap; }
+  .rv-end .rv-field { flex: 1; min-width: 12rem; }
+  .rv-go { display: inline-flex; align-items: center; justify-content: center; padding: 0.5rem 1rem; border-radius: 8px; background: var(--accent); color: #fff; font-weight: 600; font-size: 0.85rem; }
+
+  .rv-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  .rv-table th { text-align: left; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); font-weight: 600; padding: 0.3rem 0.4rem; border-bottom: 1px solid var(--border); }
+  .rv-table td { padding: 0.5rem 0.4rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .rv-table td small { display: block; color: var(--text-secondary); font-size: 0.72rem; }
+  .rv-ok { color: var(--success); font-weight: 700; }
+  .rv-miss { color: var(--error); font-weight: 700; }
+  .rv-scroll { overflow-x: auto; }
+
+  .rv-summary { margin-top: 0.9rem; background: var(--bg-primary); border: 1px solid var(--border); border-radius: 10px; padding: 0.75rem; font-size: 0.85rem; }
+  .rv-summary p { color: var(--text-secondary); font-size: 0.78rem; margin-top: 0.3rem; }
+  .rv-note { background: var(--bg-secondary); border: 1px solid var(--border); border-left: 5px solid var(--warning); border-radius: 8px; padding: 0.7rem 0.9rem; font-size: 0.85rem; margin: 1rem 0 2rem; }
+</style>
+
+<h2>Going back over a finished match</h2>
+<p class="subtitle">When a real match is over, you put in what happened in all five rounds. Then it shows the best bet and the best play for every round, next to what you did. You never need the other player's cards. All numbers below are examples.</p>
+
+<div class="rv-grid">
+
+  <div class="mockup">
+    <div class="mockup-header">1 · You put the match in <span>— two steps per round</span></div>
+    <div class="mockup-body">
+      <div class="rv-tabs">
+        <span class="done">Round 1 ✓</span>
+        <span class="done">Round 2 ✓</span>
+        <span class="on">Round 3</span>
+        <span>Round 4</span>
+        <span>Round 5</span>
+      </div>
+
+      <div class="rv-stage">
+        <div class="label">Step 1 · Start of the hand</div>
+        <div class="rv-fields">
+          <div class="rv-field">Your bet<b>200</b></div>
+          <div class="rv-field">Perfect Pairs<b>0</b></div>
+          <div class="rv-field">4 Card Total<b>0</b></div>
+        </div>
+        <div class="rv-line"><span class="rv-who">Your cards</span><span class="rv-card">9</span><span class="rv-card">7</span></div>
+        <div class="rv-line"><span class="rv-who">Dealer showed</span><span class="rv-card">10</span></div>
+      </div>
+
+      <div class="rv-stage">
+        <div class="label">Step 2 · How it ended</div>
+        <div class="rv-line"><span class="rv-who">What you did</span>
+          <span class="rv-move">Hit</span><span class="rv-move on">Stand</span><span class="rv-move">Double</span><span class="rv-move">Split</span>
+        </div>
+        <div class="rv-line"><span class="rv-who">Dealer turned over</span><span class="rv-card">9</span><span class="rv-add">+</span></div>
+        <div class="rv-outcome">Dealer 19, you 16. You lost 200. Chips 1,300.</div>
+      </div>
+
+      <div class="label">Tap a card to add it</div>
+      <div class="rv-picker">
+        <span>A</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>J</span><span>Q</span><span>K</span>
+      </div>
+
+      <div class="rv-end">
+        <div class="rv-field">Other player's final chips, if the game shows them<b>—</b></div>
+        <span class="rv-go">Analyze match</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">2 · It shows the best line <span>— after you press Analyze</span></div>
+    <div class="mockup-body">
+      <div class="rv-scroll">
+        <table class="rv-table">
+          <thead>
+            <tr><th>Round</th><th>Your bet</th><th>Best bet</th><th>Your play</th><th>Best play</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>1</td><td>100</td><td><span class="rv-ok">100 ✓</span></td>
+              <td>Doubled<small>11 against 6</small></td><td><span class="rv-ok">Double ✓</span></td>
+            </tr>
+            <tr>
+              <td>2</td><td>300</td><td><span class="rv-miss">150</span></td>
+              <td>Stood<small>20 against 8</small></td><td><span class="rv-ok">Stand ✓</span></td>
+            </tr>
+            <tr>
+              <td>3</td><td>200</td><td><span class="rv-miss">150</span></td>
+              <td>Stood<small>16 against 10</small></td><td><span class="rv-miss">Hit</span></td>
+            </tr>
+            <tr>
+              <td>4</td><td>100</td><td><span class="rv-miss">400</span></td>
+              <td>Stood<small>Ace-7 against 9</small></td><td><span class="rv-miss">Hit</span></td>
+            </tr>
+            <tr>
+              <td>5</td><td>500</td><td><span class="rv-ok">500 ✓</span></td>
+              <td>Stood<small>20 against 6</small></td><td><span class="rv-ok">Stand ✓</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="rv-summary">
+        You finished on <b>1,700</b>. Three bets and two plays were off the best line.
+        <p>Biggest miss: round 4, betting 100 where 400 was best. "Best" means the choice that finishes ahead most often, judged only on what you could know at that moment.</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="rv-note">This works on a match that is over, taken as a whole: all five rounds go in, then you get the report. It does not give answers hand by hand while a match is running.</div>
+
+<div class="section">
+  <h3>Is this what you meant by putting the cards in?</h3>
+  <p class="subtitle">Click one, then tell me more in the terminal.</p>
+  <div class="options">
+    <div class="option" data-choice="review-and-practice" onclick="toggleSelect(this)">
+      <div class="letter">A</div>
+      <div class="content">
+        <h3>Yes, and I still want the practice table too</h3>
+        <p>Practice on the table it deals, and go back over real matches afterwards.</p>
+      </div>
+    </div>
+    <div class="option" data-choice="review-only" onclick="toggleSelect(this)">
+      <div class="letter">B</div>
+      <div class="content">
+        <h3>Yes, and this is the part I care about</h3>
+        <p>Going back over real matches matters more to me than the practice table.</p>
+      </div>
+    </div>
+    <div class="option" data-choice="different" onclick="toggleSelect(this)">
+      <div class="letter">C</div>
+      <div class="content">
+        <h3>No, I meant something else</h3>
+        <p>Say what in the terminal.</p>
+      </div>
+    </div>
+  </div>
+</div>
