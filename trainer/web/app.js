@@ -37,9 +37,9 @@
     return Number(amount).toLocaleString("en-US", { maximumFractionDigits: 1 });
   }
 
-  // 0.412 -> "41%"
+  // 0.4123 -> "41.2%". One decimal, because a choice counts as a miss from half a point.
   function fmtChance(chance) {
-    return Math.round(Number(chance) * 100) + "%";
+    return (Math.round(Number(chance) * 1000) / 10).toFixed(1) + "%";
   }
 
   // "10H" -> a card element; null -> a face-down card

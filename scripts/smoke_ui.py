@@ -13,6 +13,7 @@ page. Prints SMOKE OK, or what was missing, and where the screenshot is.
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -92,8 +93,14 @@ def main() -> int:
     try:
         with tempfile.TemporaryDirectory() as scratch:
             dom = run_edge(edge, Path(scratch) / "profile-dom", base + hook, "--dump-dom")
+            # Picture the page exactly as it was dumped: the same markup with its scripts taken
+            # out (so nothing re-runs) and its styles still loaded from the running trainer.
+            frozen = re.sub(r"<script\b[^>]*>.*?</script>", "", dom, flags=re.S)
+            frozen = frozen.replace("<head>", f'<head><base href="{base}">', 1)
+            still = ROOT / "data" / "smoke" / f"{name}-frozen.html"
+            still.write_text(frozen, encoding="utf-8")
             shot = ROOT / "data" / "smoke" / f"{name}.png"
-            run_edge(edge, Path(scratch) / "profile-shot", base + hook, f"--screenshot={shot}")
+            run_edge(edge, Path(scratch) / "profile-shot", still.as_uri(), f"--screenshot={shot}")
     finally:
         server.shutdown()
         server.server_close()
