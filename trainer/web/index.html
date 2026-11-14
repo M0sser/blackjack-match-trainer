@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Match Trainer</title>
+<link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="/static/practice.css">
+<link rel="stylesheet" href="/static/review.css">
+</head>
+<body>
+<header class="top">
+  <h1>Match Trainer</h1>
+  <nav class="tabs" role="tablist" aria-label="Screens">
+    <button class="tab" data-tab="practice" role="tab">Practice</button>
+    <button class="tab" data-tab="review" role="tab">Review</button>
+    <button class="tab" data-tab="settings" role="tab">Settings</button>
+  </nav>
+</header>
+
+<div id="error-strip" class="error-strip" role="alert"></div>
+
+<div id="solving" class="solving" hidden>
+  <p><strong>Working out the best bets.</strong> <span id="solving-message"></span></p>
+  <div class="solving-bar"><div id="solving-fill"></div></div>
+  <p class="note">This takes a minute or two the first time, and again whenever the rules or the opponents change.</p>
+</div>
+
+<main>
+  <section id="tab-practice" class="panel" role="tabpanel"></section>
+  <section id="tab-review" class="panel" role="tabpanel" hidden></section>
+  <section id="tab-settings" class="panel" role="tabpanel" hidden></section>
+</main>
+
+<script src="/static/app.js"></script>
+<script src="/static/practice.js"></script>
+<script src="/static/review.js"></script>
+<script src="/static/settings.js"></script>
+</body>
+</html>
