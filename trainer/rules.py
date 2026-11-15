@@ -17,7 +17,7 @@ class Rules:
     insurance_offered: bool = True
     double_after_split: bool = True
     split_by_value: bool = True      # False: only two cards of the same rank can be split
-    min_bet: float = 5.0
+    min_bet: float = 10.0
     bet_step: float = 5.0
     tie_credit: float = 0.5          # what equal final chips count for: 1 is a win, 0 a loss
     clock_seconds: int = 360

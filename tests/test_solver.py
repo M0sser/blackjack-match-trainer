@@ -32,14 +32,14 @@ def test_history_index_and_grid():
 
 
 def test_propagate_follows_the_betting_rule(tables):
-    assert propagate(R, one("turtle")[0], tables, [2, 2, 4]) == {(995.0, 0.0): 1.0}
+    assert propagate(R, one("turtle")[0], tables, [2, 2, 4]) == {(990.0, 0.0): 1.0}
     assert propagate(R, one("chaser", 50)[0], tables, [2, 2]) == {(850.0, 200.0): 1.0}
 
 
 def test_final_distribution_and_credit(tables):
     chips, weight = final_distribution(R, one("turtle"), tables, [2, 2, 2, 2], 2)
-    assert chips.tolist() == [975.0] and abs(weight.sum() - 1.0) < 1e-12
-    assert credit(chips, weight, np.array([970.0, 975.0, 980.0]), 0.5).tolist() == [0.0, 0.5, 1.0]
+    assert chips.tolist() == [950.0] and abs(weight.sum() - 1.0) < 1e-12
+    assert credit(chips, weight, np.array([940.0, 950.0, 960.0]), 0.5).tolist() == [0.0, 0.5, 1.0]
 
 
 def test_beats_an_opponent_who_only_bets_the_minimum(vs_turtle):

@@ -139,7 +139,7 @@ listed here so they are easy to find and change later.
 | Surrender | Not offered | Not mentioned anywhere |
 | Double | Any first two cards, including after a split | Assumption |
 | Split | Two cards of equal value, once per round; split aces get one card each; 21 after a split is not blackjack | Assumption |
-| Main bet | Multiples of 5, minimum 5, maximum all chips | All-in from the user; minimum assumed |
+| Main bet | Multiples of 5, minimum 10, maximum all chips | All-in from the user; minimum assumed |
 | Betting every round | Required while you have chips | Assumption |
 | Perfect Pairs | Same rank and suit 25:1, same rank and colour 12:1, same rank 6:1 | Published |
 | 4 Card Total | Your two cards plus both dealer cards, ace = 11: 36–37 pays 2:1, 38–39 pays 8:1, 40+ pays 10:1 | Published |
@@ -202,6 +202,13 @@ Each opponent is a play style plus a betting rule. Betting rules:
 | Late lunge | Minimum bets, then all-in on round five | 5 |
 | Chaser 50 / 100 | Doubles the bet after a loss, resets after a win | 3 / 3 |
 | Random | A random pick each round from minimum, 10%, 25%, 50%, all-in | 4 |
+| Mixed | A random pick each round from 10%, 18%, 22.5%, 37.5%, 60% of chips | (added 2026-11-15) |
+
+**Update 2026-11-15:** the default rule weights are no longer the numbers above. They are counts from
+28 real finished matches (match-stats screenshots), plus the numbers above counted as 10 matches.
+Flat 250, Flat 300 and Mixed were added because many real opponents bet that way. The
+counts and the sum are in `trainer/opponents.py`. Play styles cannot be seen in match stats,
+so the style weights are unchanged. The minimum bet is 10, not 5.
 
 Style weights: Book 50, Cautious 40, Dealer-copy 10. The default population
 is every betting rule crossed with every style, weighted by the product.

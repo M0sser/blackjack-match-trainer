@@ -112,7 +112,7 @@
   }
 
   function render() {
-    fields.min_bet = el("input", { type: "number", min: "5", step: "5", inputmode: "numeric" });
+    fields.min_bet = el("input", { type: "number", min: "10", step: "5", inputmode: "numeric" });
     fields.tie_credit = el("select", {},
       el("option", { value: "0.5" }, "Half a win"), el("option", { value: "0" }, "A loss"), el("option", { value: "1" }, "A win"));
     fields.split_by_value = el("select", {},

@@ -119,7 +119,7 @@
   function rules() {
     const status = T.getStatus();
     return (status && status.settings.rules) ||
-      { min_bet: 5, bet_step: 5, insurance_offered: true, double_after_split: true, split_by_value: true };
+      { min_bet: 10, bet_step: 5, insurance_offered: true, double_after_split: true, split_by_value: true };
   }
 
   // ---- reading a round ----------------------------------------------------------

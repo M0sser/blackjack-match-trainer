@@ -24,7 +24,7 @@ def test_stand_and_dealer_busts():
 
 def test_blackjack_pays_three_to_two_exactly():
     assert run(["AS", "9H", "KD", "7C"], []).main_net == 150.0
-    assert run(["AS", "9H", "KD", "7C"], [], main=5.0).chips_after == 1007.5
+    assert run(["AS", "9H", "KD", "7C"], [], main=15.0).chips_after == 1022.5
 
 
 def test_blackjack_against_dealer_blackjack_pushes():

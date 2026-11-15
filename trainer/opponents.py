@@ -32,6 +32,8 @@ RULE_VARIANTS = [
     ("Flat 50", "flat", 50),
     ("Flat 100", "flat", 100),
     ("Flat 200", "flat", 200),
+    ("Flat 250", "flat", 250),
+    ("Flat 300", "flat", 300),
     ("Flat 500", "flat", 500),
     ("Share 10%", "share", 0.10),
     ("Share 25%", "share", 0.25),
@@ -42,13 +44,39 @@ RULE_VARIANTS = [
     ("Chaser 50", "chaser", 50),
     ("Chaser 100", "chaser", 100),
     ("Random", "random", 0),
+    ("Mixed", "mixed", 0),
 ]
 
-DEFAULT_RULE_WEIGHTS = dict(zip(
-    (label for label, _, _ in RULE_VARIANTS),
-    (5, 7, 7, 15, 11, 8, 5, 8, 5, 8, 6, 5, 3, 3, 4),
-))
+# A Mixed opponent bets one of these shares of its current chips each round, equally likely.
+# They are the middles of five equal-sized groups of 62 bet-to-chips ratios read off the
+# 28 real matches below (bet taken as the hand's net, so a double or blackjack reads high).
+MIXED_SHARES = (0.10, 0.18, 0.225, 0.375, 0.60)
 
+# The first guess at the mix (design doc, section 6.4), before any real matches were seen.
+PRIOR_RULE_WEIGHTS = {
+    "Turtle": 5, "Flat 25": 7, "Flat 50": 7, "Flat 100": 15, "Flat 200": 11, "Flat 500": 8,
+    "Share 10%": 5, "Share 25%": 8, "Share 50%": 5, "All-in": 8, "Double up and sit": 6,
+    "Late lunge": 5, "Chaser 50": 3, "Chaser 100": 3, "Random": 4,
+}
+
+# Opponents in 28 finished 21 Rivals matches (screenshots of match stats, 2026-11-15),
+# each sorted to the betting rule its five hand results fit best. Opponents whose bets
+# changed from hand to hand with no fixed rule are counted as Mixed.
+OBSERVED_RULE_COUNTS = {
+    "Turtle": 1, "Flat 25": 1, "Flat 50": 1, "Flat 250": 2, "Flat 300": 4, "Flat 500": 2,
+    "All-in": 2, "Chaser 100": 1, "Mixed": 14,
+}
+
+# The prior counts as this many matches, so a rule not seen in 28 matches keeps a small weight.
+PRIOR_MATCHES = 10
+
+DEFAULT_RULE_WEIGHTS = {
+    label: OBSERVED_RULE_COUNTS.get(label, 0)
+    + PRIOR_MATCHES * PRIOR_RULE_WEIGHTS.get(label, 0) / sum(PRIOR_RULE_WEIGHTS.values())
+    for label, _, _ in RULE_VARIANTS
+}
+
+# Play styles cannot be seen in match stats, so these are still the first guess.
 DEFAULT_STYLE_WEIGHTS = {"book": 50, "cautious": 40, "dealer_copy": 10}
 
 
@@ -92,6 +120,8 @@ def _wanted(opp: OpponentType, rules: Rules, round_no: int, chips: float, memory
         return [memory]
     if rule == "random":
         return [rules.min_bet, 0.10 * chips, 0.25 * chips, 0.50 * chips, chips]
+    if rule == "mixed":
+        return [share * chips for share in MIXED_SHARES]
     raise ValueError(f"unknown betting rule: {rule}")
 
 

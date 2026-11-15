@@ -20,7 +20,7 @@ def app(tmp_path, quick_brain):
 def test_status(app):
     code, body = app.handle("GET", "/api/status", None)
     assert code == 200 and body["brain"]["ready"] is True and body["settings"]["default_mode"] == "coach"
-    assert body["settings"]["rules"]["min_bet"] == 5.0 and "Flat 100" in body["default_rule_weights"]
+    assert body["settings"]["rules"]["min_bet"] == 10.0 and "Flat 100" in body["default_rule_weights"]
 
 
 def test_practice_flow(app):
@@ -150,10 +150,10 @@ def test_settings_are_saved_and_a_rule_change_resolves(app, tmp_path, monkeypatc
     current = app.handle("GET", "/api/status", None)[1]["settings"]
     code, body = app.handle("POST", "/api/settings", {**current, "default_mode": "match"})
     assert code == 200 and body["resolving"] is False and not started
-    changed = {**current, "rules": {**current["rules"], "min_bet": 10.0}}
+    changed = {**current, "rules": {**current["rules"], "min_bet": 20.0}}
     code, body = app.handle("POST", "/api/settings", changed)
     assert code == 200 and body["resolving"] is True and started == [True]
-    assert json.loads((tmp_path / "settings.json").read_text())["rules"]["min_bet"] == 10.0
+    assert json.loads((tmp_path / "settings.json").read_text())["rules"]["min_bet"] == 20.0
     assert app.handle("GET", "/api/status", None)[1]["brain"]["ready"] is False
     assert app.handle("POST", "/api/settings", {**current, "rules": {**current["rules"], "min_bet": -5}})[0] == 400
 

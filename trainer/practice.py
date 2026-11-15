@@ -30,7 +30,7 @@ def replay_opponent(rules: Rules, opp: OpponentType, shoes: Sequence, rng: np.ra
         bets = bets_for(opp, rules, round_no, chips, memory)
         if bets[0][0] == 0.0:
             break
-        if opp.rule == "random":
+        if len(bets) > 1:
             bet = bets[int(rng.choice(len(bets), p=[p for _, p in bets]))][0]
         else:
             bet = bets[0][0]

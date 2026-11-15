@@ -79,12 +79,12 @@ def test_losing_everything_ends_the_match(quick_brain):
 
 def test_half_chips_survive(quick_brain):
     m = PracticeMatch(R, quick_brain, [FLAT], "match", seed=1, shoes=[shoe("AS", "9H", "KD", "7C")] * 5)
-    s = m.bet(5.0)
-    assert s["phase"] == "round_over" and s["chips"] == 1007.5
+    s = m.bet(15.0)
+    assert s["phase"] == "round_over" and s["chips"] == 1022.5
     m.next_round()
     with pytest.raises(TrainerError):
-        m.bet(1007.5)
-    assert m.bet(1005.0)["bet"]["main"] == 1005.0
+        m.bet(1022.5)
+    assert m.bet(1020.0)["bet"]["main"] == 1020.0
 
 def test_the_clock_forfeits_a_match_but_not_a_coaching_session(quick_brain):
     for mode, outcome in (("match", "forfeit"), ("coach", None)):
