@@ -18,7 +18,8 @@
   // ---- state ------------------------------------------------------------------
 
   function blankRound() {
-    return { main: "", pp: "", fct: "", player: [null, null], suits: [null, null], upcard: null,
+    return { main: "", pp: "", fct: "", overrides: { main: false, pp: false, fct: false },
+             player: [null, null], suits: [null, null], upcard: null,
              insurance: false, actions: [], dealer: [] };
   }
 
@@ -29,7 +30,14 @@
   function load() {
     try {
       const form = JSON.parse(localStorage.getItem(STORE));
-      if (form && Array.isArray(form.rounds) && form.rounds.length === ROUNDS) return form;
+      if (form && Array.isArray(form.rounds) && form.rounds.length === ROUNDS) {
+        // Bets in older saved reviews were entered by hand. Keep those amounts.
+        form.rounds.forEach((r) => {
+          if (!r.overrides) r.overrides = Object.fromEntries(["main", "pp", "fct"].map((name) =>
+            [name, r[name] !== ""]));
+        });
+        return form;
+      }
     } catch (err) { /* nothing saved, or storage is blocked */ }
     return blankForm();
   }
@@ -41,6 +49,8 @@
   const state = {
     form: load(),
     slot: null,          // the card slot the picker fills: {kind: player|upcard|action|dealer, i, j}
+    pickerOpen: false,
+    recommendations: [],
     checks: [],          // the latest /api/review/check answer, one entry per round
     report: null,        // the latest /api/review/analyze answer
     analyzing: false,
@@ -200,24 +210,76 @@
     }
   }
 
+  function betKey(current) {
+    return JSON.stringify(state.form.rounds.slice(0, current).map(payload));
+  }
+
+  function currentRecommendation() {
+    const advice = state.recommendations[state.form.current];
+    return advice && advice.key === betKey(state.form.current) ? advice.bet : null;
+  }
+
+  function syncBetFields() {
+    for (const name of ["main", "pp", "fct"]) {
+      const input = view.bets[name];
+      input.value = round()[name];
+      input.readOnly = !round().overrides[name];
+      input.classList.toggle("rv-default-bet", input.readOnly);
+      view.overrides[name].checked = round().overrides[name];
+    }
+  }
+
+  function showBetAdvice(bet, message) {
+    if (bet) {
+      view.betAdvice.replaceChildren(
+        el("strong", {}, "Suggested main bet: " + T.fmtChips(bet.best)),
+        el("p", { class: "note" }, T.fmtChance(bet.best_chance) + " chance of finishing ahead with the suggested bets."));
+    } else {
+      view.betAdvice.textContent = message;
+    }
+    for (const [name, key] of [["pp", "best_pp"], ["fct", "best_fct"]]) {
+      const amount = bet && bet[key];
+      const badge = view.sideAdvice[name];
+      badge.className = "rv-side-status" + (bet ? amount > 0 ? " recommended" : " skip" : "");
+      badge.textContent = bet ? amount > 0 ? "✓ Recommended · " + T.fmtChips(amount) + " chips"
+        : "Skip · Not recommended" : "Waiting for recommendation";
+    }
+  }
+
+  function applyRecommendation(bet) {
+    const r = round();
+    let updated = false;
+    for (const [name, key] of [["main", "best"], ["pp", "best_pp"], ["fct", "best_fct"]]) {
+      if (!r.overrides[name] && r[name] !== bet[key]) {
+        r[name] = bet[key];
+        updated = true;
+      }
+    }
+    showBetAdvice(bet);
+    syncBetFields();
+    if (updated) changed();
+  }
+
   async function loadBetAdvice() {
     const number = ++adviceNumber;
     const current = state.form.current;
     const previous = state.form.rounds.slice(0, current).map(payload);
     if (previous.some((r, i) => !r || !state.checks[i] || !state.checks[i].complete || !state.checks[i].ok)) {
-      view.betAdvice.textContent = "Complete the earlier rounds to see the best bet.";
+      showBetAdvice(null, "Complete the earlier rounds to see the suggested bet.");
       return;
     }
-    view.betAdvice.textContent = "Calculating best bet…";
+    const cached = currentRecommendation();
+    if (cached) { applyRecommendation(cached); return; }
+    const key = betKey(current);
+    showBetAdvice(null, "Calculating suggested bet…");
     try {
       const bet = await T.api("POST", "/api/review/best-bet", { rounds: previous }, { quiet: true });
       if (number !== adviceNumber) return;
-      view.betAdvice.replaceChildren(
-        el("div", {}, el("strong", {}, "Best bet for round " + (current + 1) + ": "),
-          ...betText(bet.best, bet.best_pp, bet.best_fct)),
-        el("div", { class: "note" }, T.fmtChance(bet.best_chance) + " chance of finishing ahead"));
+      state.recommendations[current] = { key, bet };
+      applyRecommendation(bet);
     } catch (err) {
-      if (number === adviceNumber) view.betAdvice.textContent = "Best bet unavailable until the trainer is ready and earlier rounds are complete.";
+      if (number === adviceNumber) showBetAdvice(null,
+        "Suggested bet unavailable until the trainer is ready and earlier rounds are complete. You can still enter a different amount.");
     }
   }
 
@@ -271,6 +333,15 @@
   function changed() {
     ++adviceNumber;
     ++playAdviceNumber;
+    ++checkNumber;
+    // A later automatic bet must be recalculated if an earlier round changes.
+    for (let i = state.form.current + 1; i < ROUNDS; i++) {
+      state.recommendations[i] = null;
+      for (const name of ["main", "pp", "fct"]) {
+        if (!state.form.rounds[i].overrides[name]) state.form.rounds[i][name] = "";
+      }
+    }
+    state.checks = state.checks.slice(0, state.form.current);
     save();
     scheduleCheck();
     if (state.report) { state.report = null; renderReport(); renderRoundAdvice(); }
@@ -281,6 +352,7 @@
     if (i > bustOut() && bustOut() >= 0) return;
     state.form.current = i;
     state.slot = null;
+    state.pickerOpen = false;
     save();
     renderRound();
     loadBetAdvice();
@@ -288,15 +360,28 @@
   }
 
   function selectSlot(slot) {
+    state.pickerOpen = !sameSlot(state.slot, slot) || !state.pickerOpen;
     state.slot = slot;
     refresh();
+    if (state.pickerOpen) (view.picker.querySelector('[aria-pressed="true"]') || view.picker.querySelector(".rv-pick")).focus();
   }
 
   function setBet(name, amount) {
+    round().overrides[name] = true;
     round()[name] = amount === "" ? "" : Number(amount);
     const input = view.bets && view.bets[name];
     if (input && input.value !== String(round()[name])) input.value = round()[name];
+    syncBetFields();
     changed();
+  }
+
+  function toggleBetOverride(name, enabled) {
+    round().overrides[name] = enabled;
+    const bet = currentRecommendation();
+    if (!enabled) round()[name] = bet ? bet[{ main: "best", pp: "best_pp", fct: "best_fct" }[name]] : "";
+    syncBetFields();
+    changed();
+    if (enabled) { view.bets[name].focus(); view.bets[name].select(); }
   }
 
   function setSuit(i, suit) { round().suits[i] = suit || null; changed(); }
@@ -336,7 +421,9 @@
     }
     if (!next && slot.kind !== "upcard" && follow(r).over) next = { kind: "dealer", i: r.dealer.length };
     state.slot = next;
+    state.pickerOpen = false;
     changed();
+    focusSlot(next || slot);
   }
 
   function addAction(action) {
@@ -348,18 +435,22 @@
     else r.actions.push({ action, card: null });
     state.slot = action === "stand" ? null : { kind: "action", i, j: 0 };
     if (action === "stand" && follow(r).over) state.slot = { kind: "dealer", i: r.dealer.length };
+    state.pickerOpen = action !== "stand";
     changed();
+    if (state.pickerOpen) view.picker.querySelector(".rv-pick").focus();
   }
 
   function undoAction() {
     round().actions.pop();
     state.slot = null;
+    state.pickerOpen = false;
     changed();
   }
 
   function undoDealer() {
     round().dealer.pop();
     state.slot = { kind: "dealer", i: round().dealer.length };
+    state.pickerOpen = false;
     changed();
   }
 
@@ -380,6 +471,8 @@
     ++playAdviceNumber;
     state.form = blankForm();
     state.slot = null;
+    state.pickerOpen = false;
+    state.recommendations = [];
     state.report = null;
     state.checks = [];
     save();
@@ -393,15 +486,72 @@
     return Boolean(a && b && a.kind === b.kind && (a.i || 0) === (b.i || 0) && (a.j || 0) === (b.j || 0));
   }
 
+  function slotKey(slot) { return [slot.kind, slot.i || 0, slot.j || 0].join("-"); }
+
+  function slotButton(slot) {
+    return slot && document.querySelector('[data-card-slot="' + slotKey(slot) + '"]');
+  }
+
+  function focusSlot(slot) {
+    const button = slotButton(slot);
+    if (button) button.focus({ preventScroll: true });
+  }
+
+  function closePicker(restoreFocus) {
+    state.pickerOpen = false;
+    view.picker.hidden = true;
+    for (const button of document.querySelectorAll('.rv-slot[aria-expanded="true"]')) {
+      button.setAttribute("aria-expanded", "false");
+    }
+    if (restoreFocus) focusSlot(state.slot);
+  }
+
+  function positionPicker() {
+    if (!state.pickerOpen || view.picker.hidden) return;
+    const anchor = slotButton(state.slot);
+    if (!anchor) { closePicker(); return; }
+    const rect = anchor.getBoundingClientRect();
+    const popup = view.picker.getBoundingClientRect();
+    const gap = 8;
+    view.picker.style.left = Math.max(gap, Math.min(rect.left, window.innerWidth - popup.width - gap)) + "px";
+    const below = rect.bottom + gap;
+    const top = below + popup.height <= window.innerHeight - gap ? below : rect.top - popup.height - gap;
+    view.picker.style.top = Math.max(gap, Math.min(top, window.innerHeight - popup.height - gap)) + "px";
+  }
+
+  function renderPicker() {
+    const anchor = slotButton(state.slot);
+    view.picker.hidden = !state.pickerOpen || !anchor;
+    if (view.picker.hidden) return;
+    const label = anchor.getAttribute("aria-label").split(":")[0];
+    const rank = anchor.dataset.rank;
+    view.picker.setAttribute("aria-label", "Choose a card for " + label.toLowerCase());
+    view.picker.replaceChildren(
+      el("div", { class: "rv-picker-head" }, el("strong", {}, label),
+        el("button", { type: "button", class: "rv-picker-close", "aria-label": "Close card dropdown",
+          onclick: () => closePicker(true) }, "×")),
+      el("div", { class: "rv-picker" }, RANKS.map((choice) =>
+        el("button", { type: "button", class: "rv-pick", "aria-label": "Choose " + choice,
+          "aria-pressed": choice === rank ? "true" : "false", onclick: () => pickRank(choice) },
+          el("span", { class: "rv-corner", "aria-hidden": "true" }, choice),
+          el("span", { class: "rv-rank" }, choice),
+          el("span", { class: "rv-corner bottom", "aria-hidden": "true" }, choice)))),
+      el("p", { class: "note" }, "Choose a rank or type A, 2–9, T, J, Q, K. Esc closes."));
+    positionPicker();
+  }
+
   function slotEl(rank, slot, label) {
     const on = sameSlot(state.slot, slot);
     return el("button", {
       type: "button",
       class: "rv-slot" + (rank ? " filled" : "") + (on ? " on" : ""),
       "aria-label": label + (rank ? ": " + rank : ": empty"),
-      "aria-pressed": on ? "true" : "false",
+      "aria-haspopup": "dialog", "aria-controls": "rv-card-dropdown",
+      "aria-expanded": on && state.pickerOpen ? "true" : "false",
+      "data-card-slot": slotKey(slot), "data-rank": rank || "",
+      onfocus: () => { if (!state.pickerOpen) state.slot = slot; },
       onclick: () => selectSlot(slot),
-    }, rank || "+");
+    }, el("span", {}, rank || "+"), el("small", { "aria-hidden": "true" }, "▾"));
   }
 
   function line(who, ...children) {
@@ -430,11 +580,17 @@
   function betField(name, label) {
     const input = el("input", {
       type: "number", min: "0", step: String(rules().bet_step || 5), inputmode: "numeric",
+      id: "rv-bet-" + name, readonly: !round().overrides[name], placeholder: "Waiting…",
       value: round()[name] === "" ? "" : String(round()[name]),
       oninput: (event) => setBet(name, event.target.value),
     });
+    const override = el("input", { type: "checkbox", checked: round().overrides[name],
+      "aria-label": "Change " + label.toLowerCase() + " amount",
+      onchange: (event) => toggleBetOverride(name, event.target.checked) });
     view.bets[name] = input;
-    return el("label", { class: "field" }, label, input);
+    view.overrides[name] = override;
+    return el("div", { class: "rv-bet-field" }, el("label", { class: "field", for: input.id }, label, input),
+      el("label", { class: "rv-override" }, override, "Change amount"));
   }
 
   // Step 1's cards: player cards, suit pickers for a Perfect Pairs pair, and the up card.
@@ -554,12 +710,22 @@
   function refresh() {
     renderStart();
     renderEnd();
+    renderPicker();
     showChecks();
   }
 
   function renderRound() {
     view.bets = {};
-    view.fields.replaceChildren(betField("main", "Your bet"), betField("pp", "Perfect Pairs"), betField("fct", "4 Card Total"));
+    view.overrides = {};
+    view.sideAdvice = {};
+    view.fields.replaceChildren(betField("main", "Your bet"),
+      el("p", { class: "note" }, "The suggested amount is filled in automatically. Change it only if you bet differently."));
+    view.sideFields.replaceChildren(...[["pp", "Perfect Pairs"], ["fct", "4 Card Total"]].map(([name, label]) => {
+      view.sideAdvice[name] = el("p", { class: "rv-side-status", "aria-live": "polite" });
+      return el("div", { class: "rv-side-bet" }, el("h3", {}, label), view.sideAdvice[name], betField(name, label + " bet"));
+    }));
+    showBetAdvice(currentRecommendation(), "Calculating suggested bet…");
+    syncBetFields();
     view.roundTitle.textContent = "Round " + (state.form.current + 1);
     refresh();
     renderRoundAdvice();
@@ -647,6 +813,7 @@
     view.tabs = el("div", { class: "rv-tabs", role: "group", "aria-label": "Rounds" });
     view.roundTitle = el("span", {});
     view.fields = el("div", { class: "rv-fields" });
+    view.sideFields = el("div", {});
     view.start = el("div", {});
     view.end = el("div", {});
     view.outcome = el("div", { class: "rv-outcome", "aria-live": "polite" });
@@ -656,6 +823,7 @@
     view.analyze = el("button", { type: "button", class: "btn primary", onclick: analyze }, "Analyze match");
     view.analyzeNote = el("p", { class: "note" });
     view.report = el("div", { class: "box rv-report" });
+    view.picker = el("div", { id: "rv-card-dropdown", class: "rv-card-dropdown", role: "dialog", hidden: true });
 
     const opponent = view.opponent = el("input", {
       type: "number", min: "0", step: "5", inputmode: "numeric", placeholder: "—",
@@ -668,17 +836,21 @@
 
     const entry = el("div", { class: "box rv-entry" },
       view.tabs,
-      view.betAdvice,
       view.roundAdvice,
-      el("div", { class: "rv-stage" },
-        el("div", { class: "rv-label" }, view.roundTitle, " · Step 1 · Start of the hand"),
-        view.fields, view.start, view.playAdvice),
-      el("div", { class: "rv-stage" },
-        el("div", { class: "rv-label" }, "Step 2 · How it ended"),
-        view.end, view.outcome),
-      el("div", { class: "rv-label" }, "Pick a card for the highlighted slot (or type A, 2–9, T, J, Q, K)"),
-      el("div", { class: "rv-picker" }, RANKS.map((rank) =>
-        el("button", { type: "button", class: "rv-pick", onclick: () => pickRank(rank) }, rank))),
+      el("div", { class: "rv-workspace" },
+        el("div", { class: "rv-hand-entry" },
+          view.betAdvice,
+          el("div", { class: "rv-stage" },
+            el("div", { class: "rv-label" }, view.roundTitle, " · Step 1 · Start of the hand"),
+            view.fields, view.start,
+            el("p", { class: "note rv-gap" }, "Click a card box to choose its rank."), view.playAdvice),
+          el("div", { class: "rv-stage" },
+            el("div", { class: "rv-label" }, "Step 2 · How it ended"),
+            view.end, view.outcome)),
+        el("aside", { class: "rv-side-panel", "aria-label": "Side bets" },
+          el("h2", {}, "Side bets"),
+          el("p", { class: "note" }, "Suggested side bets are included automatically. A 0 means skip this bet."),
+          view.sideFields)),
       el("div", { class: "rv-finish" },
         el("label", { class: "field" }, "Other player's final chips, if you saw them", opponent),
         el("label", { class: "field" }, "How it went", won),
@@ -691,7 +863,7 @@
         el("h2", {}, "Review your match"),
         el("p", { class: "note" }, "Enter each round as you go to see the next best bet. " +
           "Once the match is complete, analyze it to compare every bet and play.")),
-      el("div", { class: "rv-grid" }, entry, view.report));
+      el("div", { class: "rv-grid" }, entry, view.report), view.picker);
     renderRound();
     renderReport();
   }
@@ -701,12 +873,34 @@
   document.addEventListener("keydown", (event) => {
     if (T.shownTab() !== "review" || event.ctrlKey || event.metaKey || event.altKey) return;
     if (/^(INPUT|SELECT|TEXTAREA)$/.test(event.target.tagName)) return;
+    if (state.pickerOpen) {
+      if (event.key === "Escape") { event.preventDefault(); closePicker(true); return; }
+      if (event.key === "Tab") { closePicker(true); return; }
+      const buttons = [...view.picker.querySelectorAll(".rv-pick")];
+      const index = buttons.indexOf(document.activeElement);
+      const offsets = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 };
+      if (event.key in offsets || event.key === "Home" || event.key === "End") {
+        event.preventDefault();
+        const next = event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1
+          : Math.max(0, Math.min(buttons.length - 1, index + offsets[event.key]));
+        buttons[next].focus();
+        return;
+      }
+    }
     const key = event.key.toLowerCase();
     const rank = KEYS[key] || (/^[2-9]$/.test(key) ? key : null);
     if (!rank) return;
     event.preventDefault();
     pickRank(rank);
   });
+
+  document.addEventListener("pointerdown", (event) => {
+    if (state.pickerOpen && !event.target.closest(".rv-card-dropdown, .rv-slot")) closePicker();
+  });
+  window.addEventListener("resize", positionPicker);
+  document.addEventListener("scroll", positionPicker, true);
+  T.onTab("practice", () => closePicker());
+  T.onTab("settings", () => closePicker());
 
   // ---- the test hook: /#review-demo --------------------------------------------------
 
@@ -743,7 +937,7 @@
   renderAll();
   scheduleCheck();
   T.onStatus(() => { if (!state.checks.length) return; showChecks(); });
-  T.onReady(loadBetAdvice);
+  T.onReady(() => { state.recommendations = []; loadBetAdvice(); });
   T.onReady(loadPlayAdvice);
   if (location.hash === "#review-demo") {
     let demoStarted = false;

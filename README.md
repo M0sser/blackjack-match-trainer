@@ -26,6 +26,11 @@ Settings.
   rounds. The trainer checks that the chips add up, then shows the best bet and
   the best play for every round next to what you did.
 
+In Review, click any card box to open a dropdown of card ranks. Suggested bets
+are filled in automatically; tick **Change amount** beside a bet to enter what
+you actually bet, or untick it to use the suggestion again. Perfect Pairs and
+4 Card Total have their own side panel, with **Recommended** or **Skip** labels.
+
 The review is for going over a match. It takes the round
 and then reports
 
