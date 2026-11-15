@@ -67,6 +67,83 @@ def test_review_check_and_analyze(app, tmp_path):
     assert app.handle("POST", "/api/review/check", {"rounds": "nonsense"})[0] == 400
 
 
+def test_review_autosaves_incomplete_matches_without_the_brain(tmp_path):
+    from uuid import uuid4
+    app = App(tmp_path)
+    draft = {"revision": 1, "rounds": [{"main": ""} for _ in range(5)]}
+    identifier = str(uuid4())
+    code, answer = app.handle("POST", "/api/review/save", {
+        "review_id": identifier, "form": draft, "rounds": [None] * 5})
+    assert code == 200 and answer["saved"]
+    path = tmp_path / "reviews" / f"review-{identifier}.json"
+    saved = json.loads(path.read_text())
+    assert saved["status"] == "in_progress" and saved["form"] == draft
+    assert App(tmp_path).data_dir.joinpath("reviews", path.name).is_file()
+
+
+def test_completed_review_is_saved_before_analysis_and_analysis_uses_the_same_file(app, tmp_path):
+    from uuid import uuid4
+    identifier = str(uuid4())
+    draft = {"revision": 1, "rounds": MATCH}
+    assert app.handle("POST", "/api/review/save", {
+        "review_id": identifier, "form": draft, "rounds": MATCH})[0] == 200
+    path = tmp_path / "reviews" / f"review-{identifier}.json"
+    assert json.loads(path.read_text())["status"] == "complete"
+    code, report = app.handle("POST", "/api/review/analyze", {
+        "review_id": identifier, "review_form": draft, "rounds": MATCH})
+    assert code == 200 and report["final_chips"] == 1700
+    assert json.loads(path.read_text())["report"] == report
+    assert len(list((tmp_path / "reviews").glob("*.json"))) == 1
+
+
+def test_practice_saves_every_action_and_keeps_separate_matches(app, tmp_path):
+    code, state = app.handle("POST", "/api/practice/start", {"mode": "coach", "seed": 5})
+    assert code == 200 and "saved_file" in state
+    path = next((tmp_path / "matches").glob("*.json"))
+    while state["phase"] != "match_over":
+        phase = state["phase"]
+        if phase == "bet":
+            route, body = "/api/practice/bet", {"main": 100}
+        elif phase in ("insurance", "play"):
+            route, body = "/api/practice/action", {"action": "no_insurance" if phase == "insurance" else "stand"}
+        else:
+            if state["round"] == 5:
+                assert json.loads(path.read_text())["status"] == "complete"
+            route, body = "/api/practice/next", {}
+        code, state = app.handle("POST", route, body)
+        assert code == 200
+        saved = json.loads(path.read_text())
+        assert saved["state"]["step"] == state["step"]
+    assert saved["status"] == "complete" and saved["state"]["summary"] == state["summary"]
+    assert any(event["event"] == "action" for event in saved["events"])
+    assert saved["seed"] == 5 and saved["settings"]
+    app.handle("POST", "/api/practice/start", {"mode": "match", "seed": 6})
+    assert len(list((tmp_path / "matches").glob("*.json"))) == 2
+    assert json.loads(path.read_text())["status"] == "complete"
+
+
+def test_practice_timeouts_are_saved_on_the_state_poll(app, tmp_path):
+    app.handle("POST", "/api/practice/start", {"mode": "match", "seed": 5})
+    app.match._used = app.match.rules.clock_seconds
+    app.match._since = None
+    code, state = app.handle("GET", "/api/practice/state", None)
+    assert code == 200 and state["summary"]["outcome"] == "forfeit"
+    saved = json.loads(next((tmp_path / "matches").glob("*.json")).read_text())
+    assert saved["status"] == "complete" and saved["state"]["summary"]["outcome"] == "forfeit"
+
+
+def test_practice_save_failure_is_visible_and_can_be_retried(app, tmp_path, monkeypatch):
+    def fail(*args):
+        raise OSError("disk failure")
+    with monkeypatch.context() as patch:
+        patch.setattr("trainer.server.write_record", fail)
+        code, state = app.handle("POST", "/api/practice/start", {"mode": "coach", "seed": 5})
+        assert code == 200 and state["save_error"] and state["phase"] == "bet"
+    code, state = app.handle("GET", "/api/practice/state", None)
+    assert code == 200 and "saved_file" in state and "save_error" not in state
+    assert len(list((tmp_path / "matches").glob("*.json"))) == 1
+
+
 def test_settings_are_saved_and_a_rule_change_resolves(app, tmp_path, monkeypatch):
     started = []
     monkeypatch.setattr(app, "start_brain", lambda: started.append(True))

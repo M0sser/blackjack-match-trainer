@@ -15,6 +15,7 @@ from trainer.brain import Brain, PlaySpot
 from trainer.cards import SUITS, hand_total, parse_card, rank_of, value_of
 from trainer.engine import Round
 from trainer.errors import TrainerError
+from trainer.history import save_review_analysis
 from trainer.rules import Rules
 
 _STAND_IN_DOWN = parse_card("2")    # used for a down card never seen; it never makes a dealer blackjack
@@ -360,7 +361,9 @@ def analyze_match(rules: Rules, brain: Brain, rounds: list) -> dict:
 
 
 def save_review(data_dir, payload: dict, report: dict) -> Path:
-    """Write the entered match and its report to data_dir/reviews/<YYYYMMDD-HHMMSS>.json."""
+    """Save analysis alongside its autosaved review, or create a legacy timestamped record."""
+    if payload.get("review_id"):
+        return save_review_analysis(data_dir, payload, report)
     folder = Path(data_dir) / "reviews"
     folder.mkdir(parents=True, exist_ok=True)
     stamp = time.strftime("%Y%m%d-%H%M%S")

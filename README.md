@@ -31,6 +31,12 @@ are filled in automatically; tick **Change amount** beside a bet to enter what
 you actually bet, or untick it to use the suggestion again. Perfect Pairs and
 4 Card Total have their own side panel, with **Recommended** or **Skip** labels.
 
+Every match is saved automatically on this computer. Reviews are saved under
+`data/reviews/` as you enter them, including unfinished reviews; analyzing updates
+the same match file. Practice matches are saved under `data/matches/` after every
+bet and action, including their cards, results, and final report. Starting a new
+match keeps the previous file. These local records are excluded from GitHub.
+
 The review is for going over a match. It takes the round
 and then reports
 

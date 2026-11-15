@@ -7,6 +7,7 @@
   const el = T.el;
   const ROUNDS = 5;
   const STORE = "match-trainer-review";
+  const PENDING_STORE = "match-trainer-review-pending";
   const RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
   const KEYS = { a: "A", t: "10", j: "J", q: "Q", k: "K", "0": "10", "1": "A" };
   const SUITS = [["S", "♠ Spades"], ["H", "♥ Hearts"], ["D", "♦ Diamonds"], ["C", "♣ Clubs"]];
@@ -24,13 +25,16 @@
   }
 
   function blankForm() {
-    return { rounds: Array.from({ length: ROUNDS }, blankRound), current: 0, opponentFinal: "", won: "unsure" };
+    return { id: crypto.randomUUID(), revision: 0, rounds: Array.from({ length: ROUNDS }, blankRound),
+             current: 0, opponentFinal: "", won: "unsure" };
   }
 
   function load() {
     try {
       const form = JSON.parse(localStorage.getItem(STORE));
       if (form && Array.isArray(form.rounds) && form.rounds.length === ROUNDS) {
+        if (!form.id) form.id = crypto.randomUUID();
+        if (!Number.isInteger(form.revision)) form.revision = 0;
         // Bets in older saved reviews were entered by hand. Keep those amounts.
         form.rounds.forEach((r) => {
           if (!r.overrides) r.overrides = Object.fromEntries(["main", "pp", "fct"].map((name) =>
@@ -43,7 +47,9 @@
   }
 
   function save() {
+    state.form.revision += 1;
     try { localStorage.setItem(STORE, JSON.stringify(state.form)); } catch (err) { /* storage is blocked */ }
+    queueReviewSave(state.form);
   }
 
   const state = {
@@ -56,6 +62,57 @@
     analyzing: false,
   };
   const view = {};       // the containers that get re-rendered
+  let saveQueue = Promise.resolve();
+  const pendingSaves = new Map();
+  try {
+    for (const body of JSON.parse(localStorage.getItem(PENDING_STORE)) || []) {
+      if (body?.form?.id && Array.isArray(body.form.rounds)) pendingSaves.set(body.form.id, body);
+    }
+  } catch (err) { /* no pending saves, or storage is blocked */ }
+
+  function savePending() {
+    try { localStorage.setItem(PENDING_STORE, JSON.stringify([...pendingSaves.values()])); } catch (err) { /* storage is blocked */ }
+  }
+
+  function saveMessage(id, message, failed) {
+    if (state.form.id !== id || !view.saveStatus) return;
+    view.saveStatus.textContent = message;
+    view.saveStatus.classList.toggle("miss", !!failed);
+  }
+
+  function queueReviewSave(form) {
+    const snapshot = JSON.parse(JSON.stringify(form));
+    const body = { review_id: snapshot.id, form: snapshot, rounds: snapshot.rounds.map(payload) };
+    pendingSaves.set(snapshot.id, body);
+    savePending();
+    saveMessage(snapshot.id, "Saving this match…");
+    saveQueue = saveQueue.catch(() => {}).then(async () => {
+      // Combine edits still waiting for a request, but retain each separate match.
+      if (pendingSaves.get(snapshot.id)?.form.revision !== snapshot.revision) return;
+      try {
+        await T.api("POST", "/api/review/save", body, { quiet: true });
+        if (pendingSaves.get(snapshot.id)?.form.revision === snapshot.revision) {
+          pendingSaves.delete(snapshot.id);
+          savePending();
+          saveMessage(snapshot.id, "Saved automatically on this computer · data/reviews");
+        }
+      } catch (err) {
+        saveMessage(snapshot.id, "Could not save this match to disk. Your draft is kept in this browser. Retrying…", true);
+      }
+    });
+    return saveQueue;
+  }
+
+  // Retry a failed save, and flush the latest edit when the tab closes.
+  setInterval(() => {
+    for (const body of pendingSaves.values()) queueReviewSave(body.form);
+  }, 5000);
+  window.addEventListener("pagehide", () => {
+    for (const body of pendingSaves.values()) {
+      fetch("/api/review/save", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body), keepalive: true }).catch(() => {});
+    }
+  });
 
   function round() { return state.form.rounds[state.form.current]; }
 
@@ -308,6 +365,8 @@
     if (!readyToAnalyze() || state.analyzing) return;
     const form = state.form;
     const body = {
+      review_id: form.id,
+      review_form: JSON.parse(JSON.stringify(form)),
       rounds: form.rounds.slice(0, neededRounds()).map(payload),
       opponent_final: form.opponentFinal === "" ? null : Number(form.opponentFinal),
       won: form.won === "won" ? true : form.won === "lost" ? false : null,
@@ -823,6 +882,7 @@
     view.analyze = el("button", { type: "button", class: "btn primary", onclick: analyze }, "Analyze match");
     view.analyzeNote = el("p", { class: "note" });
     view.report = el("div", { class: "box rv-report" });
+    view.saveStatus = el("p", { class: "note rv-gap", role: "status" }, "This match is saved automatically on this computer.");
     view.picker = el("div", { id: "rv-card-dropdown", class: "rv-card-dropdown", role: "dialog", hidden: true });
 
     const opponent = view.opponent = el("input", {
@@ -856,6 +916,7 @@
         el("label", { class: "field" }, "How it went", won),
         view.analyze),
       view.analyzeNote,
+      view.saveStatus,
       el("button", { type: "button", class: "btn rv-small rv-gap", onclick: newReview }, "Start a new review"));
 
     section.replaceChildren(
@@ -935,6 +996,8 @@
   // ---- start -----------------------------------------------------------------------
 
   renderAll();
+  for (const body of [...pendingSaves.values()]) queueReviewSave(body.form);
+  save();
   scheduleCheck();
   T.onStatus(() => { if (!state.checks.length) return; showChecks(); });
   T.onReady(() => { state.recommendations = []; loadBetAdvice(); });

@@ -13,11 +13,13 @@ import threading
 import traceback
 import urllib.request
 import webbrowser
+from uuid import uuid4
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from trainer.brain import Brain, BrainConfig
 from trainer.errors import TrainerError
+from trainer.history import save_review_form, timestamp, write_record
 from trainer.opponents import DEFAULT_RULE_WEIGHTS, DEFAULT_STYLE_WEIGHTS
 from trainer.practice import PracticeMatch
 from trainer.review import analyze_match, check_rounds, recommend_bet, recommend_play, save_review
@@ -62,6 +64,7 @@ class App:
         self.lock = threading.RLock()
         self.brain: Brain | None = None
         self.match: PracticeMatch | None = None
+        self._practice_record: dict | None = None
         self.status = {"ready": False, "progress": 0.0, "message": "Getting ready"}
         self._solve_number = 0
 
@@ -135,17 +138,32 @@ class App:
             with self.lock:
                 if self.match is None:
                     return 404, {"error": "No match is running."}
-                return 200, self.match.state()
+                return 200, self._save_practice(self.match.state())
         if route == ("POST", "/api/practice/bet"):
             main, pp, fct = _amount(body, "main"), _amount(body, "pp", 0), _amount(body, "fct", 0)
             with self.lock:
-                return 200, self._match().bet(main, pp, fct, step=_step(body))
+                return 200, self._save_practice(self._match().bet(main, pp, fct, step=_step(body)), "bet", body)
         if route == ("POST", "/api/practice/action"):
             with self.lock:
-                return 200, self._match().act(str(body.get("action", "")), step=_step(body))
+                return 200, self._save_practice(self._match().act(str(body.get("action", "")), step=_step(body)), "action", body)
         if route == ("POST", "/api/practice/next"):
             with self.lock:
-                return 200, self._match().next_round(step=_step(body))
+                return 200, self._save_practice(self._match().next_round(step=_step(body)), "next", body)
+        if route == ("POST", "/api/review/save"):
+            with self.lock:
+                rounds = self._rounds(body)
+                rules = self._rules()
+                checks = check_rounds(rules, rounds)
+                complete = False
+                for i, check in enumerate(checks):
+                    if not check["ok"] or not check["complete"]:
+                        break
+                    if i + 1 == rules.rounds or rules.floor_bet(check["chips_after"]) < rules.min_bet:
+                        complete = True
+                        break
+                path = save_review_form(self.data_dir, body.get("review_id"), body.get("form"),
+                                        complete=complete, settings=self.settings.to_dict())
+            return 200, {"saved": True, "file": "data/reviews/" + path.name}
         if route == ("POST", "/api/review/check"):
             return 200, {"rounds": check_rounds(self._rules(), self._rounds(body))}
         if route == ("POST", "/api/review/best-bet"):
@@ -160,7 +178,8 @@ class App:
             with self.lock:
                 brain = self._ready_brain()
             report = analyze_match(brain.rules, brain, self._rounds(body))
-            save_review(self.data_dir, body, report)
+            with self.lock:
+                save_review(self.data_dir, body, report)
             return 200, report
         if route == ("POST", "/api/settings"):
             return 200, self._change_settings(body)
@@ -193,7 +212,31 @@ class App:
             brain = self._ready_brain()
             # the opponent comes from the mix this brain was solved for
             self.match = PracticeMatch(brain.rules, brain, brain.population, mode, seed)
-            return self.match.state()
+            self._practice_record = {"kind": "practice", "id": str(uuid4()), "created_at": timestamp(),
+                                     "seed": seed, "mode": mode, "settings": self.settings.to_dict(), "events": []}
+            return self._save_practice(self.match.state(), "start")
+
+    def _save_practice(self, snapshot: dict, event=None, request=None) -> dict:
+        """Keep every action and round, including matches left before the summary screen."""
+        record = self._practice_record
+        if record is None:
+            return snapshot
+        now = timestamp()
+        previous = record.get("state", {})
+        if event or snapshot["phase"] != previous.get("phase"):
+            record["events"].append({"at": now, "event": event or "clock", "request": request,
+                                     "state": dict(snapshot)})
+        finished = snapshot["phase"] == "match_over" or (snapshot["phase"] == "round_over" and
+            (snapshot["round"] >= snapshot["rounds"] or snapshot["chips"] < self.match.rules.min_bet))
+        record.update(updated_at=now, status="complete" if finished else "in_progress", state=dict(snapshot))
+        path = self.data_dir / "matches" / (record["id"] + ".json")
+        try:
+            write_record(path, record)
+            snapshot["saved_file"] = "data/matches/" + path.name
+        except OSError:
+            traceback.print_exc()
+            snapshot["save_error"] = "This match could not be saved to disk. Check that the trainer's data folder is writable."
+        return snapshot
 
     def _change_settings(self, body: dict) -> dict:
         new = Settings.from_dict(body)

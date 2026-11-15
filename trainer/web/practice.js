@@ -53,6 +53,7 @@
   function accept(answer) {
     state.match = answer;
     state.receivedAt = performance.now();
+    if (answer.save_error) T.showError(answer.save_error);
     if (answer.phase === "bet" && state.draftRound !== answer.round) {
       state.draft = { main: 0, pp: 0, fct: 0 };
       state.target = "main";
@@ -446,6 +447,8 @@
     if (!state.ready || !state.loaded) view = renderWaiting();
     else if (!state.match) view = renderStart();
     else view = PHASES[state.match.phase](state.match);
+    if (state.match && state.match.saved_file) view.append(el("p", { class: "note rv-gap" },
+      "Saved automatically on this computer · data/matches"));
     root.replaceChildren(view);
     tickClock();
   }
