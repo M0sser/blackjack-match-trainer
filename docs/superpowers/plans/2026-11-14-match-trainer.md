@@ -19,8 +19,8 @@
 - Rule defaults (spec section 5): 1,000 starting chips, 5 rounds, 6 decks shuffled fresh per round, dealer stands on every 17, blackjack 3:2, insurance at half the main bet paying 2:1, no surrender, double any first two cards including after a split, one split per round on equal value, split aces one card each, minimum bet 5 in steps of 5, equal final chips count 0.5, clock 360 seconds.
 - Side-bet payouts: Perfect Pairs 25 / 12 / 6 to 1; 4 Card Total 2 / 8 / 10 to 1 for 36–37 / 38–39 / 40+ with ace = 11.
 - "Fine" means within 0.005 of the best chance, or within twice the standard error of a sampled difference.
-- On screen the tool is called "Match Trainer". No DraftKings name, logo or artwork anywhere in the UI.
-- The review reports only on a complete finished match. No endpoint or screen returns a grade for cards typed in hand by hand.
+- On screen the tool is called "Match Trainer" and uses no third-party brand names, logos, or artwork.
+- The review should report match by match
 - Every user-facing error is a `TrainerError` with a plain-words message; the UI shows the message as is.
 - Speed targets: first solve under 5 minutes; bet grade under 0.5 s; play grade under 1 s; review report under 15 s.
 

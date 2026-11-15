@@ -1,5 +1,5 @@
 // The review screen: put in a finished match round by round, let the trainer check that the
-// chips add up, then analyze the whole match at once. It never grades a single hand.
+// chips add up, then analyze the rounds at once. .
 (function () {
   "use strict";
 
@@ -170,6 +170,56 @@
 
   let checkTimer = null;
   let checkNumber = 0;
+  let adviceNumber = 0;
+  let playAdviceNumber = 0;
+
+  async function loadPlayAdvice() {
+    const number = ++playAdviceNumber;
+    const current = round(), data = payload(current), f = follow(current);
+    const previous = state.form.rounds.slice(0, state.form.current).map(payload);
+    if (!data || previous.some((r, i) => !r || !state.checks[i] || !state.checks[i].ok || !state.checks[i].complete)) {
+      view.playAdvice.textContent = "Enter the bet and cards, and complete earlier rounds to see a suggested play.";
+      return;
+    }
+    if (f.over || f.waiting) {
+      view.playAdvice.textContent = f.waiting ? "Enter the drawn card to see the next suggested play." : "No further playing decision.";
+      return;
+    }
+    view.playAdvice.textContent = "Calculating suggested play…";
+    try {
+      const result = await T.api("POST", "/api/review/best-play", { rounds: previous, current: data }, { quiet: true });
+      if (number !== playAdviceNumber) return;
+      if (!result.best) { view.playAdvice.textContent = "No playing decision available."; return; }
+      view.playAdvice.replaceChildren(
+        el("strong", {}, "Suggested play: " + (DO[result.best] || result.best)),
+        el("p", { class: "note" }, "Estimated chance of finishing the match ahead:"),
+        ...Object.entries(result.chances).map(([action, probability]) =>
+          el("div", {}, (DO[action] || action) + ": " + T.fmtChance(probability))));
+    } catch (err) {
+      if (number === playAdviceNumber) view.playAdvice.textContent = "Suggested play unavailable. Check the bet and cards entered.";
+    }
+  }
+
+  async function loadBetAdvice() {
+    const number = ++adviceNumber;
+    const current = state.form.current;
+    const previous = state.form.rounds.slice(0, current).map(payload);
+    if (previous.some((r, i) => !r || !state.checks[i] || !state.checks[i].complete || !state.checks[i].ok)) {
+      view.betAdvice.textContent = "Complete the earlier rounds to see the best bet.";
+      return;
+    }
+    view.betAdvice.textContent = "Calculating best bet…";
+    try {
+      const bet = await T.api("POST", "/api/review/best-bet", { rounds: previous }, { quiet: true });
+      if (number !== adviceNumber) return;
+      view.betAdvice.replaceChildren(
+        el("div", {}, el("strong", {}, "Best bet for round " + (current + 1) + ": "),
+          ...betText(bet.best, bet.best_pp, bet.best_fct)),
+        el("div", { class: "note" }, T.fmtChance(bet.best_chance) + " chance of finishing ahead"));
+    } catch (err) {
+      if (number === adviceNumber) view.betAdvice.textContent = "Best bet unavailable until the trainer is ready and earlier rounds are complete.";
+    }
+  }
 
   function scheduleCheck() {
     clearTimeout(checkTimer);
@@ -188,6 +238,8 @@
       state.checks = [];
     }
     showChecks();
+    loadBetAdvice();
+    loadPlayAdvice();
   }
 
   async function analyze() {
@@ -203,6 +255,7 @@
     try {
       state.report = await T.api("POST", "/api/review/analyze", body);
       renderReport();
+      renderRoundAdvice();
       if (window.innerWidth < 760) view.report.scrollIntoView({ behavior: "smooth" });
     } catch (err) {
       /* the error strip already says why */
@@ -216,9 +269,11 @@
 
   // After anything in the form changes: keep it, check it, and drop a report that no longer fits.
   function changed() {
+    ++adviceNumber;
+    ++playAdviceNumber;
     save();
     scheduleCheck();
-    if (state.report) { state.report = null; renderReport(); }
+    if (state.report) { state.report = null; renderReport(); renderRoundAdvice(); }
     refresh();
   }
 
@@ -228,6 +283,8 @@
     state.slot = null;
     save();
     renderRound();
+    loadBetAdvice();
+    loadPlayAdvice();
   }
 
   function selectSlot(slot) {
@@ -319,6 +376,8 @@
   }
 
   function newReview() {
+    ++adviceNumber;
+    ++playAdviceNumber;
     state.form = blankForm();
     state.slot = null;
     state.report = null;
@@ -503,6 +562,21 @@
     view.fields.replaceChildren(betField("main", "Your bet"), betField("pp", "Perfect Pairs"), betField("fct", "4 Card Total"));
     view.roundTitle.textContent = "Round " + (state.form.current + 1);
     refresh();
+    renderRoundAdvice();
+  }
+
+  function renderRoundAdvice() {
+    const round = state.report && state.report.rounds[state.form.current];
+    if (!round) { view.roundAdvice.replaceChildren(); view.roundAdvice.hidden = true; return; }
+    const bet = round.bet;
+    view.roundAdvice.hidden = false;
+    view.roundAdvice.replaceChildren(
+      el("strong", {}, "Optimal play for round " + round.round),
+      el("p", {}, "Best bet: ", ...betText(bet.best, bet.best_pp, bet.best_fct)),
+      ...(round.plays.length ? round.plays.map((p) =>
+        el("p", {}, (round.plays.some((q) => q.hand === 2) ? "Hand " + p.hand + ": " : "") +
+          p.spot + " — " + (DO[p.best] || p.best))) : [el("p", {}, "No playing decision.")])
+    );
   }
 
   function betText(main, pp, fct) {
@@ -527,8 +601,7 @@
         el("h2", {}, "The report"),
         el("p", { class: "note" }, "Once every round is in and the chips add up, press Analyze match. " +
           "The best bet and the best play for every round then appear here, next to what you did."),
-        el("p", { class: "rv-warn" }, "This works on a match that is over, taken as a whole. " +
-          "It does not give answers hand by hand while a match is running."));
+        el("p", { class: "note" }, "The best bet for the selected round appears above as soon as the earlier rounds are complete."));
       return;
     }
     const rows = rep.rounds.map((r) => {
@@ -577,6 +650,9 @@
     view.start = el("div", {});
     view.end = el("div", {});
     view.outcome = el("div", { class: "rv-outcome", "aria-live": "polite" });
+    view.roundAdvice = el("div", { class: "rv-summary", hidden: true, "aria-live": "polite" });
+    view.betAdvice = el("div", { class: "rv-summary", "aria-live": "polite" }, "Calculating best bet…");
+    view.playAdvice = el("div", { class: "rv-summary", "aria-live": "polite" });
     view.analyze = el("button", { type: "button", class: "btn primary", onclick: analyze }, "Analyze match");
     view.analyzeNote = el("p", { class: "note" });
     view.report = el("div", { class: "box rv-report" });
@@ -592,9 +668,11 @@
 
     const entry = el("div", { class: "box rv-entry" },
       view.tabs,
+      view.betAdvice,
+      view.roundAdvice,
       el("div", { class: "rv-stage" },
         el("div", { class: "rv-label" }, view.roundTitle, " · Step 1 · Start of the hand"),
-        view.fields, view.start),
+        view.fields, view.start, view.playAdvice),
       el("div", { class: "rv-stage" },
         el("div", { class: "rv-label" }, "Step 2 · How it ended"),
         view.end, view.outcome),
@@ -610,9 +688,9 @@
 
     section.replaceChildren(
       el("div", { class: "rv-head" },
-        el("h2", {}, "Go back over a finished match"),
-        el("p", { class: "note" }, "Put in what happened in every round. The trainer checks the chips add up, " +
-          "then shows the best bet and the best play for each round next to what you did.")),
+        el("h2", {}, "Review your match"),
+        el("p", { class: "note" }, "Enter each round as you go to see the next best bet. " +
+          "Once the match is complete, analyze it to compare every bet and play.")),
       el("div", { class: "rv-grid" }, entry, view.report));
     renderRound();
     renderReport();
@@ -665,6 +743,8 @@
   renderAll();
   scheduleCheck();
   T.onStatus(() => { if (!state.checks.length) return; showChecks(); });
+  T.onReady(loadBetAdvice);
+  T.onReady(loadPlayAdvice);
   if (location.hash === "#review-demo") {
     let demoStarted = false;
     T.onReady(() => { if (!demoStarted) { demoStarted = true; demo(); } });

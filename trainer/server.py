@@ -20,7 +20,7 @@ from trainer.brain import Brain, BrainConfig
 from trainer.errors import TrainerError
 from trainer.opponents import DEFAULT_RULE_WEIGHTS, DEFAULT_STYLE_WEIGHTS
 from trainer.practice import PracticeMatch
-from trainer.review import analyze_match, check_rounds, save_review
+from trainer.review import analyze_match, check_rounds, recommend_bet, recommend_play, save_review
 from trainer.settings import MODES, Settings, load_settings, population_from, save_settings
 
 WEB_DIR = Path(__file__).resolve().parent / "web"
@@ -148,6 +148,14 @@ class App:
                 return 200, self._match().next_round(step=_step(body))
         if route == ("POST", "/api/review/check"):
             return 200, {"rounds": check_rounds(self._rules(), self._rounds(body))}
+        if route == ("POST", "/api/review/best-bet"):
+            with self.lock:
+                brain = self._ready_brain()
+            return 200, recommend_bet(brain.rules, brain, self._rounds(body))
+        if route == ("POST", "/api/review/best-play"):
+            with self.lock:
+                brain = self._ready_brain()
+            return 200, recommend_play(brain.rules, brain, self._rounds(body), body.get("current"))
         if route == ("POST", "/api/review/analyze"):
             with self.lock:
                 brain = self._ready_brain()

@@ -1,7 +1,7 @@
-"""Match review: replay a finished match typed in by hand, check it adds up, then grade it.
+"""Match review: playing rounds typed in by hand, check it adds up, then grade it.
 
 `check_rounds` only replays and totals the chips; it never grades. `analyze_match`
-grades, and only a complete finished match.
+grades.
 """
 
 from __future__ import annotations
@@ -256,6 +256,50 @@ def _grade_bet(brain: Brain, n: int, entry: dict, replay: _Replay, history: list
     return {"yours": g.yours[0], "best": g.best[0], "pp": g.yours[1], "fct": g.yours[2],
             "best_pp": g.best[1], "best_fct": g.best[2], "your_chance": g.your_chance,
             "best_chance": g.best_chance, "fine": g.fine}
+
+
+def _prior_rounds(rules: Rules, brain: Brain, previous: list):
+    if len(previous) >= rules.rounds:
+        raise TrainerError("All rounds have already been played.")
+    chips, history = float(rules.starting_chips), []
+    for n, (entry, replay) in enumerate(_replay_all(rules, previous), 1):
+        if not entry["ok"]:
+            raise TrainerError(entry["error"])
+        if not entry["complete"]:
+            raise TrainerError(f"Round {n}: finish this round first.")
+        chips = entry["chips_after"]
+        history.append(brain.round_class_dist(_known(replay)))
+    if rules.floor_bet(chips) < rules.min_bet:
+        raise TrainerError("The match ended because there are not enough chips to bet.")
+    return chips, history
+
+
+def recommend_bet(rules: Rules, brain: Brain, previous: list) -> dict:
+    """Recommend the next bet using only completed earlier rounds."""
+    chips, history = _prior_rounds(rules, brain, previous)
+    grade = brain.grade_bet(len(previous) + 1, chips, history, rules.min_bet)
+    return {"best": grade.best[0], "best_pp": grade.best[1], "best_fct": grade.best[2],
+            "best_chance": grade.best_chance}
+
+
+def recommend_play(rules: Rules, brain: Brain, previous: list, current: dict) -> dict:
+    """Score the next legal play using only cards visible to the player."""
+    chips, history = _prior_rounds(rules, brain, previous)
+    if not isinstance(current, dict):
+        raise TrainerError("Enter the bet, your cards and the dealer's upcard first.")
+    replay, error = _replay_or_message(rules, len(previous) + 1, current | {"dealer": []}, chips)
+    if error:
+        raise TrainerError(error)
+    r = replay.round_
+    legal = r.legal_actions() if r.phase == "play" else []
+    if not legal:
+        return {"best": None, "chances": {}}
+    spot = PlaySpot(round_no=len(previous) + 1, chips_start=chips, main_bet=r.main_bet,
+                    pp_bet=r.pp_bet, fct_bet=r.fct_bet, insurance_bet=r.insurance_bet,
+                    player=replay.shoe[0:3:2], upcard=r.upcard, drawn=list(replay.shoe[4:r.pos]),
+                    script=list(r.actions), legal=legal, stage=r.phase)
+    grade = brain.grade_play(spot, history, legal[0])
+    return {"best": grade.best, "chances": grade.chances, "hand": r.active + 1}
 
 
 def _grade_plays(brain: Brain, n: int, entry: dict, replay: _Replay, history: list) -> list:

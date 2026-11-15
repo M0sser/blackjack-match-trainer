@@ -26,10 +26,9 @@ Settings.
   rounds. The trainer checks that the chips add up, then shows the best bet and
   the best play for every round next to what you did.
 
-The review is for going back over a finished match. It takes the whole match
-and then reports; it is not built to give answers hand by hand while a match
-is being played, and using it that way in a paid contest would be unfair to
-the person you are playing.
+The review is for going over a match. It takes the round
+and then reports
+
 
 ## What "best" means
 

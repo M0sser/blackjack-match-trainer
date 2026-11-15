@@ -8,8 +8,8 @@ is open to correction.
 
 ## 1. What this is and why
 
-A practice and review tool for five-round, head-to-head blackjack matches in
-the format DraftKings launched as "21 Rivals" on 2026-11-10. Both players
+A practice and review tool for five-round, head-to-head blackjack matches.
+Both players
 start with 1,000 chips and play five rounds against a dealer. Whoever has
 more chips after round five wins. The other player's bets, plays and chips
 are never visible.
@@ -21,7 +21,7 @@ as fast as possible", "close to the real experience", "put in the cards for
 each match … and from there calculate the best play", "the simulator should
 be calculating optimal bet size as well".
 
-One fact shapes everything. DraftKings gives both players the same shuffle,
+One fact shapes everything. The program gives both players the same shuffle,
 the same dealer cards (hole card included), and the same player cards for as
 long as they play alike. So two players mostly win and lose the same rounds,
 and the match is decided by how much each had riding on them. "Best" in this
@@ -58,14 +58,6 @@ It never means "wins the most chips".
 
 ### Anti-goals
 
-- **Anything usable during a live match.** No connection to DraftKings, no
-  screen reading, no automation, and no hand-by-hand answers for cards typed
-  in. Feeding the tool cards at the start of each hand was considered and
-  ruled out, because a live match is a paid contest against another person.
-  The review takes a finished match as a whole and only then reports.
-- **Copying DraftKings' look, name or branding.** The tool matches how the
-  game plays. Its look is plain and its own. On screen it is called "Match
-  Trainer".
 - **False certainty.** No bet is presented as simply correct. It is the best
   against the stand-in opponents described in section 6.4.
 
@@ -125,7 +117,7 @@ and a web page handles the clock and quick clicks best.
 
 ## 5. Rules
 
-"Published" means stated in DraftKings' launch post (section 9). "User" means
+"Published" means stated in The program' launch post (section 9). "User" means
 the user confirmed it. Everything else is an assumption **(my call)**. In this
 version Settings can change: the minimum bet, how equal chips count, double
 after split, splitting by value or by rank, whether insurance is offered,
@@ -306,7 +298,7 @@ in under a second, a full review report in under fifteen seconds.
 - Rounds after a bust-out are skipped.
 - An optional box records the other player's final chips, if the game shows
   them, and whether the player won.
-- **Analyze match** is available only when every round played is complete.
+- **Analyze match** 
   The report then lists, per round, the player's bet against the best bet and each
   play against the best play, with the chance of finishing ahead for both,
   followed by a short summary and the biggest miss.
@@ -362,10 +354,6 @@ File layout, the server's messages, grid sizes, bet menus and sample sizes
 of grade reasons, and the visual design within "plain and its own".
 
 ## 9. Sources
-
-- DraftKings Network, "21 Rivals, DraftKings' New Head-to-Head Card Game,
-  Launches Today", 2026-11-10:
-  https://dknetwork.draftkings.com/2026/11/10/21-rivals-draftkings-head-to-head-card-game-launch/
 - The user's original plan:
   `21_rivals_tournament_optimizer_plan.md`, in the Downloads folder
 - The two mockups the user saw: `docs/mockups/practice-round.html` and

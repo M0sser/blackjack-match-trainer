@@ -1,7 +1,7 @@
 # tests/test_review.py
 import json, pytest
 from trainer.errors import TrainerError
-from trainer.review import analyze_match, check_rounds, save_review
+from trainer.review import analyze_match, check_rounds, recommend_bet, recommend_play, save_review
 from trainer.rules import Rules
 
 R = Rules()
@@ -63,6 +63,24 @@ def test_analyze_needs_the_whole_match(quick_brain):
         analyze_match(R, quick_brain, MATCH[:3])
     with pytest.raises(TrainerError, match="Round 2"):
         analyze_match(R, quick_brain, [MATCH[0], rnd(300, ["K", "Q"], "8", [], [])] + MATCH[2:])
+
+def test_best_bet_available_before_match_ends(quick_brain):
+    for previous in ([], MATCH[:2]):
+        advice = recommend_bet(R, quick_brain, previous)
+        assert advice["best"] >= R.min_bet
+        assert 0 <= advice["best_chance"] <= 1
+    with pytest.raises(TrainerError, match="Round 1"):
+        recommend_bet(R, quick_brain, [rnd(100, ["K", "Q"], "8", [], [])])
+
+def test_suggested_play_uses_current_hand_before_match_ends(quick_brain):
+    current = rnd(100, ["5", "6"], "6", [], [])
+    advice = recommend_play(R, quick_brain, [], current)
+    assert advice["best"] in advice["chances"]
+    assert {"hit", "stand", "double"} <= set(advice["chances"])
+    assert all(0 <= chance <= 1 for chance in advice["chances"].values())
+    current["actions"] = [{"action": "hit", "card": "2"}]
+    next_advice = recommend_play(R, quick_brain, [], current)
+    assert "double" not in next_advice["chances"]
 
 def test_a_bust_out_ends_the_match_early(quick_brain):
     report = analyze_match(R, quick_brain, [rnd(1000, ["9", "7"], "10", STAND, ["9"])])
