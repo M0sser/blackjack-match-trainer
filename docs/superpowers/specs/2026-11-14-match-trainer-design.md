@@ -137,7 +137,7 @@ listed here so they are easy to find and change later.
 | Blackjack | Pays 3:2; a tie with dealer blackjack is a push | Published |
 | Insurance | Offered when the dealer shows an ace; costs half the main bet; pays 2:1 | Payout published, the rest assumed |
 | Surrender | Not offered | Not mentioned anywhere |
-| Double | Any first two cards, including after a split | Assumption |
+| Double | First two cards, including after a split, unless the first card is an ace | First-ace restriction confirmed by the user |
 | Split | Two cards of equal value, once per round; split aces get one card each; 21 after a split is not blackjack | Assumption |
 | Main bet | Multiples of 5, minimum 10, maximum all chips | All-in from the user; minimum assumed |
 | Betting every round | Required while you have chips | Assumption |

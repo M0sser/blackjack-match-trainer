@@ -58,8 +58,8 @@ on every 17, blackjack pays 3:2, insurance pays 2:1, Perfect Pairs and 4 Card
 Total side bets, a six-minute clock.
 
 Some rules are not published, so the trainer assumes them: minimum bet 10,
-one split per round, double on any first two cards, equal chips count as half
-a win, zero chips means you are out. Settings can change a few of these. The
+one split per round, double on the first two cards unless the first is an ace,
+equal chips count as half a win, zero chips means you are out. Settings can change a few of these. The
 full list is in `docs/superpowers/specs/2026-11-14-match-trainer-design.md`,
 section 5.
 

@@ -46,6 +46,28 @@ def test_double_takes_one_card_and_doubles_the_stake():
     assert (res.main_net, res.chips_after, res.x) == (200.0, 1200.0, 2.0)
 
 
+@pytest.mark.parametrize("ace", ["AS", "AH", "AD", "AC"])
+def test_cannot_double_when_the_first_player_card_is_an_ace(ace):
+    r = Round(R, shoe(ace, "6H", "7D", "10C", "3S", "8D"), 1000.0, 100.0)
+    assert r.legal_actions() == ["hit", "stand"] and not r.view().can_double
+    with pytest.raises(TrainerError, match="first card is an ace"):
+        r.act("double")
+    assert r.pos == 4 and r.chips == 900 and r.actions == []
+
+
+def test_can_still_double_when_the_ace_is_second():
+    r = Round(R, shoe("7D", "6H", "AS", "10C", "3S", "8D"), 1000.0, 100.0)
+    assert "double" in r.legal_actions() and r.view().can_double
+    r.act("double")
+    assert r.phase == "done" and r.hands[0].doubled and r.hands[0].stake == 200
+
+
+def test_dealer_ace_does_not_block_doubling_after_insurance():
+    r = Round(R, shoe("5S", "AH", "6D", "5C", "KS", "8D"), 1000.0, 100.0)
+    r.act("no_insurance")
+    assert "double" in r.legal_actions()
+
+
 def test_double_and_split_need_the_chips():
     assert "double" not in Round(R, shoe("5S", "6H", "6D", "10C", "KS"), 150.0, 100.0).legal_actions()
     assert "split" not in Round(R, shoe("8S", "6H", "8D", "10C", "3S"), 150.0, 100.0).legal_actions()

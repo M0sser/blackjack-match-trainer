@@ -16,6 +16,7 @@ class Rules:
     blackjack_pays: float = 1.5
     insurance_offered: bool = True
     double_after_split: bool = True
+    double_on_first_ace: bool = False   # doubling is unavailable when a hand starts with an ace
     split_by_value: bool = True      # False: only two cards of the same rank can be split
     min_bet: float = 10.0
     bet_step: float = 5.0

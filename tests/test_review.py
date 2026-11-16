@@ -82,6 +82,20 @@ def test_suggested_play_uses_current_hand_before_match_ends(quick_brain):
     next_advice = recommend_play(R, quick_brain, [], current)
     assert "double" not in next_advice["chances"]
 
+
+def test_review_rejects_doubling_on_a_first_ace():
+    current = rnd(100, ["A", "7"], "6", [{"action": "double", "card": "3"}], ["10", "8"])
+    checked = check_rounds(R, [current])[0]
+    assert not checked["ok"] and "first card is an ace" in checked["error"]
+
+
+@pytest.mark.parametrize("cards, can_double", [(["A", "7"], False), (["7", "A"], True)])
+def test_suggested_play_obeys_first_ace_restriction(quick_brain, cards, can_double):
+    advice = recommend_play(R, quick_brain, [], rnd(100, cards, "6", [], []))
+    assert ("double" in advice["chances"]) == can_double
+    if not can_double:
+        assert advice["best"] in ("hit", "stand")
+
 def test_a_bust_out_ends_the_match_early(quick_brain):
     report = analyze_match(R, quick_brain, [rnd(1000, ["9", "7"], "10", STAND, ["9"])])
     assert report["final_chips"] == 0.0 and len(report["rounds"]) == 1

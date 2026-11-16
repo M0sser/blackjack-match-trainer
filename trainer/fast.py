@@ -130,7 +130,8 @@ def play_rounds(rules: Rules, seq: np.ndarray, table: np.ndarray, extra_bets,
             unsplit = hands[r] == 1
             two = ncards[rc, r] == 2
             spare = used[r] < extra[r]
-            can_double = two & spare & (unsplit | das)
+            first_card = np.where(rc == 0, p1[r], p2[r])
+            can_double = two & spare & (unsplit | das) & ((first_card != 1) | rules.double_on_first_ace)
             pair_value = np.where(unsplit & two & is_pair[r], p1[r], 0)
             can_split = (pair_value > 0) & spare
             action = table[can_double.astype(np.intp), can_split.astype(np.intp), pair_value,

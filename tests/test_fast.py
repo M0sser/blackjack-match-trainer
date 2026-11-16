@@ -44,6 +44,30 @@ def test_fast_engine_equals_reference_without_double_after_split():
     assert np.array_equal(play_rounds(rules, seq, style_table("book", rules), 3), slow)
 
 
+@pytest.mark.parametrize("allow, expected", [(False, [0.0, 2.0]), (True, [2.0, 2.0])])
+def test_fast_engine_respects_the_order_of_an_initial_ace(allow, expected):
+    rules = Rules(double_on_first_ace=allow)
+    seq = np.array([[parse_card(c) for c in row] for row in [
+        ["AS", "6H", "7D", "10C", "2S", "8D"],
+        ["7D", "6H", "AS", "10C", "2S", "8D"],
+    ]], dtype=np.int8)
+    fast = play_rounds(rules, seq, style_table("book", rules), 3)
+    slow = [play_round(rules, row, 400.0, 100.0, make_style("book", rules)).x for row in seq]
+    assert fast.tolist() == slow == expected
+
+
+def test_second_card_aces_in_split_hands_still_allow_doubling():
+    row = [parse_card(c) for c in ["7S", "6H", "7D", "10C", "AS", "2H", "AC", "2D", "8S"]]
+    r = Round(R, row, 1000.0, 100.0)
+    for action in ("split", "double", "double"):
+        assert action in r.legal_actions()
+        r.act(action)
+    assert r.result.x == 4.0
+    fast = play_rounds(R, np.array([row], dtype=np.int8), style_table("book", R), 3,
+                       script=[ACTIONS.index(a) for a in ("split", "double", "double")])
+    assert fast.tolist() == [r.result.x]
+
+
 def test_fast_engine_takes_a_different_chip_level_per_row():
     seq = sample_sequences(np.random.default_rng(4), 2000)
     levels = np.arange(2000) % 4

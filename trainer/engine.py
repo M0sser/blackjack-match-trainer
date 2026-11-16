@@ -202,6 +202,8 @@ class Round:
     def _can_double(self, hand: Hand) -> bool:
         if len(hand.cards) != 2 or self.chips < hand.stake:
             return False
+        if not self.rules.double_on_first_ace and value_of(hand.cards[0]) == 1:
+            return False
         if hand.from_split and (self._split_aces or not self.rules.double_after_split):
             return False
         return True
@@ -218,6 +220,8 @@ class Round:
                 return "You don't have the chips for insurance."
             return "First choose: insurance or no insurance."
         if action == "double":
+            if not self.rules.double_on_first_ace and value_of(self.hands[self.active].cards[0]) == 1:
+                return "You cannot double when your first card is an ace."
             return "You can only double on your first two cards, with the chips to cover it."
         if action == "split":
             return "You can only split two matching cards, once, with the chips to cover it."

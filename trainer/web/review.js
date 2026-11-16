@@ -119,7 +119,8 @@
   function rules() {
     const status = T.getStatus();
     return (status && status.settings.rules) ||
-      { min_bet: 10, bet_step: 5, insurance_offered: true, double_after_split: true, split_by_value: true };
+      { min_bet: 10, bet_step: 5, insurance_offered: true, double_after_split: true,
+        double_on_first_ace: false, split_by_value: true };
   }
 
   // ---- reading a round ----------------------------------------------------------
@@ -186,7 +187,8 @@
     if (!f.hands.length || f.over || f.waiting) return false;
     const hand = f.hands[f.active];
     if (action === "double") {
-      return hand.cards.length === 2 && !(hand.fromSplit && (f.splitAces || !rules().double_after_split));
+      return hand.cards.length === 2 && (rules().double_on_first_ace || hand.cards[0] !== "A") &&
+        !(hand.fromSplit && (f.splitAces || !rules().double_after_split));
     }
     if (action === "split") {
       const [a, b] = hand.cards;
