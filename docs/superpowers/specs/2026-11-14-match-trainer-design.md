@@ -229,6 +229,18 @@ opponents bet, so the weights are adjustable in Settings and the benchmark
 report shows results against each type separately. Stand-in opponents do
 not place side bets in this version.
 
+**Update 2026-11-16, side bets:** the user reports that real opponents basically never
+place side bets, so leaving them out of the stand-ins matches real play. It also rules
+side bets out as the reason real opponents finished higher than predicted.
+
+**Update 2026-11-16, style weights:** the style weights were fitted together with the
+betting-rule weights to the 47 logged opponent totals, and left at 50/40/10. Every
+realistic mix explains the totals about equally well (fit scores within 0.7 of each
+other); only all-cautious or all-dealer-copy is clearly worse. The fit that treats the
+old guess as 10 matches moves it only to 55/35/10, and the predicted average opponent
+finish barely moves (866 at 50/40/10, 871 if everyone played Book). Play style cannot
+explain real opponents finishing higher than predicted (median 910 against 790).
+
 ### 6.5 The brain
 
 **Result class.** For any round's cards, take the result per chip bet that
