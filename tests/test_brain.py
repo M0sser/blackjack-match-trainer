@@ -99,3 +99,14 @@ def test_prepare_reuses_its_cache(tmp_path):
     assert a.start_chance() == b.start_chance() and len(list(tmp_path.glob("*.npz"))) == 2
     assert any("solv" in m.lower() for m in first)
     assert not any("solv" in m.lower() for m in calls)
+
+
+def test_fingerprint_changes_with_mixed_shares(monkeypatch):
+    import trainer.brain as brain_module
+    from trainer.brain import BrainConfig, _fingerprint
+    from trainer.opponents import build_population
+    from trainer.rules import Rules
+    pop = build_population()
+    before = _fingerprint(Rules(), pop, BrainConfig())
+    monkeypatch.setattr(brain_module, "MIXED_SHARES", (0.1, 0.2, 0.3, 0.4, 0.5))
+    assert _fingerprint(Rules(), pop, BrainConfig()) != before

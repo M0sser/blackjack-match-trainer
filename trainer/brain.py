@@ -18,7 +18,7 @@ import numpy as np
 from trainer.cards import VALUES, value_of
 from trainer.engine import play_round
 from trainer.fast import play_rounds, sample_completions
-from trainer.opponents import OpponentType
+from trainer.opponents import MIXED_SHARES, OpponentType
 from trainer.rules import Rules
 from trainer.sidebets import fct_multipliers, pp_multiplier
 from trainer.solver import (Solution, credit, final_distributions, history_index, load_solution,
@@ -96,6 +96,7 @@ def _fingerprint(rules: Rules, population: Sequence[OpponentType], config: Brain
         "rules": rules.to_dict(),
         "population": [[o.label, o.style, o.rule, float(o.param), round(float(o.weight), 12)] for o in population],
         "config": [config.table_rounds, config.coarse, config.seed],
+        "mixed_shares": list(MIXED_SHARES),     # a change to how Mixed bets must re-solve
     }
     return hashlib.sha256(json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()[:16]
 

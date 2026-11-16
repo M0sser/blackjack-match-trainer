@@ -202,13 +202,25 @@ Each opponent is a play style plus a betting rule. Betting rules:
 | Late lunge | Minimum bets, then all-in on round five | 5 |
 | Chaser 50 / 100 | Doubles the bet after a loss, resets after a win | 3 / 3 |
 | Random | A random pick each round from minimum, 10%, 25%, 50%, all-in | 4 |
-| Mixed | A random pick each round from 10%, 18%, 22.5%, 37.5%, 60% of chips | (added 2026-11-15) |
+| Mixed | A random pick each round from 14%, 25.2%, 31.5%, 52.5%, 84% of chips (was 10%, 18%, 22.5%, 37.5%, 60% until 2026-11-16) | (added 2026-11-15) |
 
 **Update 2026-11-15:** the default rule weights are no longer the numbers above. They are counts from
 28 real finished matches (match-stats screenshots), plus the numbers above counted as 10 matches.
 Flat 250, Flat 300 and Mixed were added because many real opponents bet that way. The
 counts and the sum are in `trainer/opponents.py`. Play styles cannot be seen in match stats,
 so the style weights are unchanged. The minimum bet is 10, not 5.
+
+**Update 2026-11-16:** 47 more matches logged in the review add to those counts. Only the
+opponent's final chips are known for them, so each match is shared out over the betting rules
+by how likely each rule was to finish on that total given the round results (fractional
+counts, adding up to 47). Real opponents finished in the outer fifths of the predicted spread
+31 times in 47 where about 19 were expected. Reweighting alone brought that to 26, so the
+Mixed bet sizes were also scaled up, fitted together with the weights. Scales from about 1.37
+to 1.50 explain the logged finals equally well (smaller or larger is clearly worse); 1.4 was
+chosen because it also matches the share of opponents who went broke (19%). With it the
+outer-fifths count is 22. The weights now total 85: Mixed 33.2, Flat 500 9.2, Flat 300 7.7,
+All-in 5.4, and the rest small. The brain's cache key includes the Mixed bet sizes, so a
+change to them re-solves.
 
 Style weights: Book 50, Cautious 40, Dealer-copy 10. The default population
 is every betting rule crossed with every style, weighted by the product.

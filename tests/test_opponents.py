@@ -46,8 +46,8 @@ def test_random_is_five_equal_picks_merged():
     assert [b for b, _ in short] == [10.0, 20.0] and abs(short[0][1] - 0.8) < 1e-12 and abs(short[1][1] - 0.2) < 1e-12
 
 def test_mixed_is_five_equal_shares():
-    assert bets_for(opp("mixed"), R, 1, 1000.0, 0.0) == [(100.0, 0.2), (180.0, 0.2), (225.0, 0.2), (375.0, 0.2), (600.0, 0.2)]
-    assert [b for b, _ in bets_for(opp("mixed"), R, 2, 40.0, 0.0)] == [10.0, 15.0, 20.0]
+    assert bets_for(opp("mixed"), R, 1, 1000.0, 0.0) == [(140.0, 0.2), (250.0, 0.2), (315.0, 0.2), (525.0, 0.2), (840.0, 0.2)]
+    assert [b for b, _ in bets_for(opp("mixed"), R, 2, 40.0, 0.0)] == [10.0, 20.0, 30.0]
 
 def test_out_of_chips_bets_nothing():
     assert bets_for(opp("flat", 100), R, 3, 2.5, 0.0) == [(0.0, 1.0)]
@@ -56,8 +56,10 @@ def test_default_population():
     pop = build_population()
     assert len(pop) == 54 and abs(sum(o.weight for o in pop) - 1.0) < 1e-12
     o = next(o for o in pop if o.label == "Flat 100" and o.style == "book")
-    assert abs(o.weight - (1.5 / 38) * 0.50) < 1e-12 and o.name == "Flat 100, plays by the book"
+    assert abs(o.weight - (3.13 / 85) * 0.50) < 1e-12 and o.name == "Flat 100, plays by the book"
     m = next(o for o in pop if o.label == "Mixed" and o.style == "book")
-    assert abs(m.weight - (14 / 38) * 0.50) < 1e-12
+    assert abs(m.weight - (33.21 / 85) * 0.50) < 1e-12
+    big = next(o for o in pop if o.label == "Flat 500" and o.style == "book")
+    assert abs(big.weight - (9.2 / 85) * 0.50) < 1e-12
     assert len(build_population(style_weights={"book": 1, "cautious": 0, "dealer_copy": 0})) == 18
     assert len(build_population(rule_weights={"Turtle": 1, "Flat 100": 3})) == 6

@@ -48,9 +48,11 @@ RULE_VARIANTS = [
 ]
 
 # A Mixed opponent bets one of these shares of its current chips each round, equally likely.
-# They are the middles of five equal-sized groups of 62 bet-to-chips ratios read off the
-# 28 real matches below (bet taken as the hand's net, so a double or blackjack reads high).
-MIXED_SHARES = (0.10, 0.18, 0.225, 0.375, 0.60)
+# First read off the 28 real matches below as (0.10, 0.18, 0.225, 0.375, 0.60): the middles
+# of five equal-sized groups of 62 bet-to-chips ratios, with the bet taken as the hand's net.
+# 2026-11-16: scaled by 1.4 to fit the opponent finals of the 47 logged matches. Scales from
+# about 1.37 to 1.50 fit equally well; 1.4 also matches the share of opponents who went broke.
+MIXED_SHARES = (0.14, 0.252, 0.315, 0.525, 0.84)
 
 # The first guess at the mix (design doc, section 6.4), before any real matches were seen.
 PRIOR_RULE_WEIGHTS = {
@@ -67,11 +69,24 @@ OBSERVED_RULE_COUNTS = {
     "All-in": 2, "Chaser 100": 1, "Mixed": 14,
 }
 
-# The prior counts as this many matches, so a rule not seen in 28 matches keeps a small weight.
+# Opponents in 47 matches logged in the review (2026-11-16), where only the opponent's final
+# chips are known. Each match is shared out over the rules by how likely each rule made that
+# final total given the round results, with the weights above as the starting belief, so
+# these are fractional counts that add up to 47. Real finals sat in the outer fifths of the
+# predicted spread far more often than the old mix expected, which moves weight to big bets.
+# Fitted together with the MIXED_SHARES above.
+LOGGED_RULE_COUNTS = {
+    "Turtle": 1.30, "Flat 25": 2.37, "Flat 50": 1.02, "Flat 100": 1.63, "Flat 200": 1.20,
+    "Flat 250": 1.98, "Flat 300": 3.67, "Flat 500": 6.40, "Share 10%": 0.41, "Share 25%": 0.45,
+    "Share 50%": 0.45, "All-in": 2.60, "Double up and sit": 1.08, "Late lunge": 0.58,
+    "Chaser 50": 0.22, "Chaser 100": 1.88, "Random": 0.55, "Mixed": 19.21,
+}
+
+# The prior counts as this many matches, so a rule not seen in the real matches keeps a small weight.
 PRIOR_MATCHES = 10
 
 DEFAULT_RULE_WEIGHTS = {
-    label: OBSERVED_RULE_COUNTS.get(label, 0)
+    label: OBSERVED_RULE_COUNTS.get(label, 0) + LOGGED_RULE_COUNTS.get(label, 0)
     + PRIOR_MATCHES * PRIOR_RULE_WEIGHTS.get(label, 0) / sum(PRIOR_RULE_WEIGHTS.values())
     for label, _, _ in RULE_VARIANTS
 }
