@@ -30,6 +30,9 @@ In Review, click any card box to open a dropdown of card ranks. Suggested bets
 are filled in automatically; tick **Change amount** beside a bet to enter what
 you actually bet, or untick it to use the suggestion again. Perfect Pairs and
 4 Card Total have their own side panel, with **Recommended** or **Skip** labels.
+You can also type a card's rank; **-** (next to **0**) enters a 10.
+When you have blackjack, the dealer's second card stays hidden. If needed, record
+a blackjack push or the 4 Card Total payout using the result fields instead.
 
 Every match is saved automatically on this computer. Reviews are saved under
 `data/reviews/` as you enter them, including unfinished reviews; analyzing updates

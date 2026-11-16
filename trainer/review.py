@@ -12,11 +12,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from trainer.brain import Brain, PlaySpot
-from trainer.cards import SUITS, hand_total, parse_card, rank_of, value_of
+from trainer.cards import RANKS, SUITS, hand_total, parse_card, rank_of, value_of
 from trainer.engine import Round
 from trainer.errors import TrainerError
 from trainer.history import save_review_analysis
 from trainer.rules import Rules
+from trainer.sidebets import fct_multiplier
+from trainer.tables import class_of
 
 _STAND_IN_DOWN = parse_card("2")    # used for a down card never seen; it never makes a dealer blackjack
 
@@ -81,6 +83,28 @@ def _list(data: dict, key: str) -> list:
 
 # ---- the replay -------------------------------------------------------------------
 
+def _hidden_blackjack_down(rules: Rules, data: dict, player: list, upcard: int) -> int:
+    """A stand-in consistent with the visible payouts, never included among the known cards."""
+    outcome = data.get("blackjack_outcome", "blackjack")
+    if outcome not in ("blackjack", "push"):
+        raise TrainerError("choose whether your blackjack paid or pushed.")
+    candidates = [parse_card(rank) for rank in RANKS]
+    candidates = [card for card in candidates
+                  if (hand_total([upcard, card])[0] == 21) == (outcome == "push")]
+    if not candidates:
+        raise TrainerError("your blackjack cannot push against the dealer's up card.")
+    if data.get("fct", 0):
+        multipliers = {fct_multiplier(*player, upcard, card, rules.fct_pays) for card in candidates}
+        result = data.get("fct_result")
+        if result is None and len(multipliers) == 1:
+            result = next(iter(multipliers))
+        if isinstance(result, bool) or result not in multipliers:
+            raise TrainerError("choose the 4 Card Total result; the dealer's second card stays hidden.")
+        candidates = [card for card in candidates
+                      if fct_multiplier(*player, upcard, card, rules.fct_pays) == result]
+    return candidates[0]
+
+
 def _replay(rules: Rules, data: dict, chips: float) -> _Replay:
     """Play the round as entered on the reference engine. Raises TrainerError."""
     player = _player_cards(data)
@@ -88,7 +112,14 @@ def _replay(rules: Rules, data: dict, chips: float) -> _Replay:
     dealer = [_card(c) for c in _list(data, "dealer")]
     actions = _list(data, "actions")
     down_seen = bool(dealer)
-    shoe = [player[0], upcard, player[1], dealer[0] if down_seen else _STAND_IN_DOWN] + dealer[1:]
+    natural = hand_total(player)[0] == 21
+    if down_seen:
+        down = dealer[0]
+    elif natural:
+        down = _hidden_blackjack_down(rules, data, player, upcard)
+    else:
+        down = _STAND_IN_DOWN
+    shoe = [player[0], upcard, player[1], down] + dealer[1:]
 
     round_ = Round(rules, shoe, chips, data["main"], data.get("pp", 0), data.get("fct", 0))
     if round_.pp_bet and rank_of(player[0]) == rank_of(player[1]) and data.get("suits") is None:
@@ -150,7 +181,8 @@ def _check_finish(replay: _Replay) -> None:
     round_ = replay.round_
     if round_.phase != "done":
         return
-    if not replay.down_seen and (round_.fct_bet or not _all_bust(round_)):
+    natural = hand_total([replay.shoe[0], replay.shoe[2]])[0] == 21
+    if not replay.down_seen and not natural and (round_.fct_bet or not _all_bust(round_)):
         raise TrainerError("enter the dealer's face-down card.")
     if round_.result.cards_used < len(replay.shoe):
         if round_.actions and not _all_bust(round_):
@@ -232,6 +264,14 @@ def _known(replay: _Replay) -> dict:
     return {i: card for i, card in enumerate(replay.shoe[:used]) if i != 3 or replay.down_seen}
 
 
+def _history_class(brain: Brain, replay: _Replay) -> dict:
+    # A natural's result class is known from its payout, including a blackjack push.
+    # Its hidden stand-in must not be mistaken for an observed dealer card.
+    if hand_total([replay.shoe[0], replay.shoe[2]])[0] == 21:
+        return {int(class_of(replay.round_.result.x)): 1.0}
+    return brain.round_class_dist(_known(replay))
+
+
 def _chips(amount: float) -> str:
     return f"{amount:,.1f}".rstrip("0").rstrip(".")
 
@@ -269,7 +309,7 @@ def _prior_rounds(rules: Rules, brain: Brain, previous: list):
         if not entry["complete"]:
             raise TrainerError(f"Round {n}: finish this round first.")
         chips = entry["chips_after"]
-        history.append(brain.round_class_dist(_known(replay)))
+        history.append(_history_class(brain, replay))
     if rules.floor_bet(chips) < rules.min_bet:
         raise TrainerError("The match ended because there are not enough chips to bet.")
     return chips, history
@@ -350,7 +390,7 @@ def analyze_match(rules: Rules, brain: Brain, rounds: list) -> dict:
             "bet": _grade_bet(brain, n, entry, replay, history),
             "plays": _grade_plays(brain, n, entry, replay, history),
         })
-        history = history + [brain.round_class_dist(_known(replay))]
+        history = history + [_history_class(brain, replay)]
     return {
         "rounds": report_rounds,
         "final_chips": replays[-1][0]["chips_after"],

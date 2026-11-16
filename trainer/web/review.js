@@ -9,7 +9,7 @@
   const STORE = "match-trainer-review";
   const PENDING_STORE = "match-trainer-review-pending";
   const RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
-  const KEYS = { a: "A", t: "10", j: "J", q: "Q", k: "K", "0": "10", "1": "A" };
+  const KEYS = { a: "A", t: "10", j: "J", q: "Q", k: "K", "0": "10", "-": "10", "1": "A" };
   const SUITS = [["S", "♠ Spades"], ["H", "♥ Hearts"], ["D", "♦ Diamonds"], ["C", "♣ Clubs"]];
   const DID = { stand: "Stood", hit: "Hit", double: "Doubled", split: "Split",
                 insurance: "Took insurance", no_insurance: "No insurance" };
@@ -21,7 +21,7 @@
   function blankRound() {
     return { main: "", pp: "", fct: "", overrides: { main: false, pp: false, fct: false },
              player: [null, null], suits: [null, null], upcard: null,
-             insurance: false, actions: [], dealer: [] };
+             insurance: false, actions: [], dealer: [], blackjackOutcome: "blackjack", fctResult: "" };
   }
 
   function blankForm() {
@@ -39,6 +39,7 @@
         form.rounds.forEach((r) => {
           if (!r.overrides) r.overrides = Object.fromEntries(["main", "pp", "fct"].map((name) =>
             [name, r[name] !== ""]));
+          normalizeBlackjack(r);
         });
         return form;
       }
@@ -136,6 +137,33 @@
   function stepOneDone(r) { return Number(r.main) > 0 && r.player[0] && r.player[1] && r.upcard; }
   function needsSuits(r) { return Number(r.pp) > 0 && r.player[0] && r.player[0] === r.player[1]; }
   function insuranceAsked(r) { return r.upcard === "A" && rules().insurance_offered; }
+  function hasBlackjack(r) { return r.player.every(Boolean) && total(r.player).total === 21; }
+
+  function fctResultFor(r, down) {
+    const sum = [...r.player, r.upcard, down].reduce((n, rank) => n + (rank === "A" ? 11 : value(rank)), 0);
+    const pays = rules().fct_pays || [2, 8, 10];
+    return sum >= 40 ? pays[2] : sum >= 38 ? pays[1] : sum >= 36 ? pays[0] : -1;
+  }
+
+  function blackjackFctOptions(r) {
+    if (!r.upcard) return [];
+    const push = r.blackjackOutcome === "push";
+    return [...new Set(RANKS.filter((down) => (total([r.upcard, down]).total === 21) === push)
+      .map((down) => fctResultFor(r, down)))].sort((a, b) => a - b);
+  }
+
+  function normalizeBlackjack(r) {
+    if (!hasBlackjack(r)) return;
+    // Keep the outcome of an older saved review while removing its card entry.
+    if (r.dealer.length) {
+      r.blackjackOutcome = total([r.upcard, r.dealer[0]]).total === 21 ? "push" : "blackjack";
+      r.fctResult = fctResultFor(r, r.dealer[0]);
+    }
+    r.dealer = [];
+    r.actions = [];
+    if (![1, 10].includes(value(r.upcard))) r.blackjackOutcome = "blackjack";
+    if (r.fctResult !== "" && !blackjackFctOptions(r).includes(Number(r.fctResult))) r.fctResult = "";
+  }
 
   // Follows the player's hands the way the trainer's engine does, so the form can label split
   // hands and know when the player's part is over. The server's check stays the judge.
@@ -209,7 +237,11 @@
     }
     const out = { main: Number(r.main), pp: Number(r.pp) || 0, fct: Number(r.fct) || 0,
                   player: [...r.player], upcard: r.upcard, insurance: insuranceAsked(r) && r.insurance,
-                  actions, dealer: [...r.dealer] };
+                  actions: hasBlackjack(r) ? [] : actions, dealer: hasBlackjack(r) ? [] : [...r.dealer] };
+    if (hasBlackjack(r)) {
+      out.blackjack_outcome = r.blackjackOutcome || "blackjack";
+      out.fct_result = r.fctResult == null || r.fctResult === "" ? null : Number(r.fctResult);
+    }
     if (needsSuits(r) && r.suits[0] && r.suits[1]) out.suits = [...r.suits];
     return out;
   }
@@ -395,6 +427,11 @@
     ++adviceNumber;
     ++playAdviceNumber;
     ++checkNumber;
+    normalizeBlackjack(round());
+    if (hasBlackjack(round()) && ["dealer", "action"].includes(state.slot?.kind)) {
+      state.slot = null;
+      state.pickerOpen = false;
+    }
     // A later automatic bet must be recalculated if an earlier round changes.
     for (let i = state.form.current + 1; i < ROUNDS; i++) {
       state.recommendations[i] = null;
@@ -477,10 +514,11 @@
         a.card = rank;
       }
     } else {
+      if (hasBlackjack(r)) return;
       r.dealer[Math.min(slot.i, r.dealer.length)] = rank;
       next = { kind: "dealer", i: Math.min(slot.i, r.dealer.length - 1) + 1 };
     }
-    if (!next && slot.kind !== "upcard" && follow(r).over) next = { kind: "dealer", i: r.dealer.length };
+    if (!next && slot.kind !== "upcard" && !hasBlackjack(r) && follow(r).over) next = { kind: "dealer", i: r.dealer.length };
     state.slot = next;
     state.pickerOpen = false;
     changed();
@@ -597,7 +635,7 @@
           el("span", { class: "rv-corner", "aria-hidden": "true" }, choice),
           el("span", { class: "rv-rank" }, choice),
           el("span", { class: "rv-corner bottom", "aria-hidden": "true" }, choice)))),
-      el("p", { class: "note" }, "Choose a rank or type A, 2–9, T, J, Q, K. Esc closes."));
+      el("p", { class: "note" }, "Type A, 2–9, T or - for 10, J, Q, K. Esc closes."));
     positionPicker();
   }
 
@@ -690,6 +728,27 @@
       parts.push(line("Insurance",
         el("button", { type: "button", class: "rv-move" + (r.insurance ? " on" : ""), onclick: () => setInsurance(true) }, "Yes"),
         el("button", { type: "button", class: "rv-move" + (!r.insurance ? " on" : ""), onclick: () => setInsurance(false) }, "No")));
+    }
+    if (hasBlackjack(r)) {
+      parts.push(line("Dealer's cards", el("span", { class: "rv-slot filled fixed", title: "Up card" }, r.upcard), T.cardEl(null)),
+        el("p", { class: "note rv-gap" }, "Blackjack — the dealer's second card stays hidden."));
+      if ([1, 10].includes(value(r.upcard))) {
+        parts.push(el("label", { class: "field rv-gap" }, "Blackjack result",
+          el("select", { "aria-label": "Blackjack result", onchange: (event) => {
+            r.blackjackOutcome = event.target.value; r.fctResult = ""; changed();
+          } }, [["blackjack", "Blackjack paid 3:2"], ["push", "Push — dealer also had blackjack"]].map(([v, label]) =>
+            el("option", { value: v, selected: (r.blackjackOutcome || "blackjack") === v }, label)))));
+      }
+      if (Number(r.fct) > 0) {
+        const options = blackjackFctOptions(r);
+        parts.push(el("label", { class: "field rv-gap" }, "4 Card Total result",
+          el("select", { "aria-label": "4 Card Total result", onchange: (event) => { r.fctResult = event.target.value; changed(); } },
+            options.length > 1 ? el("option", { value: "", selected: r.fctResult == null || r.fctResult === "" }, "Choose result…") : null,
+            options.map((v) => el("option", { value: String(v), selected: Number(r.fctResult) === v },
+              v < 0 ? "Lost" : "Won " + v + ":1")))));
+      }
+      view.end.replaceChildren(...parts);
+      return;
     }
     parts.push(line("What you did", ...["hit", "stand", "double", "split"].map((action) =>
       el("button", { type: "button", class: "rv-move", disabled: !canAct(r, f, action), onclick: () => addAction(action) },

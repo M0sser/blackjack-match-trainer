@@ -48,6 +48,53 @@ def test_the_down_card_may_be_missing_after_a_bust():
     out = check_rounds(R, [rnd(100, ["K", "6"], "6", [{"action": "hit", "card": "9"}], [])])[0]
     assert out["ok"] and out["complete"] and out["chips_after"] == 900.0
 
+
+@pytest.mark.parametrize("cards", [["A", "10"], ["K", "A"], ["A", "Q"], ["J", "A"]])
+def test_player_blackjack_finishes_without_the_dealers_hidden_card(cards):
+    out = check_rounds(R, [rnd(100, cards, "6", [], [])])[0]
+    assert out["ok"] and out["complete"] and out["chips_after"] == 1150.0
+
+
+def test_blackjack_push_and_insurance_use_the_result_without_revealing_a_card():
+    current = rnd(100, ["A", "K"], "A", [], []) | {"blackjack_outcome": "push"}
+    assert check_rounds(R, [current])[0]["chips_after"] == 1000.0
+    assert check_rounds(R, [current | {"insurance": True}])[0]["chips_after"] == 1100.0
+    invalid = check_rounds(R, [current | {"upcard": "6"}])[0]
+    assert not invalid["ok"] and "cannot push" in invalid["error"]
+
+
+def test_blackjack_side_bet_uses_its_payout_instead_of_an_unseen_card():
+    current = rnd(100, ["A", "K"], "6", [], []) | {"fct": 10}
+    missing = check_rounds(R, [current])[0]
+    assert not missing["ok"] and "4 Card Total result" in missing["error"]
+    won = check_rounds(R, [current | {"fct_result": 2}])[0]
+    assert won["ok"] and won["complete"] and won["chips_after"] == 1170.0
+    invalid = check_rounds(R, [current | {"fct_result": 10}])[0]
+    assert not invalid["ok"]
+    # Low upcards guarantee a loss, so there is no unknown payout to enter.
+    assert check_rounds(R, [current | {"upcard": "2"}])[0]["chips_after"] == 1140.0
+
+
+def test_hitting_to_21_still_needs_the_dealers_cards():
+    current = rnd(100, ["5", "6"], "6", [{"action": "hit", "card": "10"}], [])
+    checked = check_rounds(R, [current])[0]
+    assert not checked["ok"] and "face-down card" in checked["error"]
+
+
+def test_blackjack_history_does_not_treat_the_hidden_stand_in_as_known(quick_brain):
+    from trainer.review import _history_class, _known, _replay
+    current = rnd(100, ["A", "K"], "10", [], []) | {"blackjack_outcome": "push"}
+    replay = _replay(R, current, 1000)
+    assert set(_known(replay)) == {0, 1, 2}
+    assert _history_class(quick_brain, replay) == {3: 1.0}
+    assert recommend_bet(R, quick_brain, [current])["best"] >= R.min_bet
+
+
+def test_match_with_blackjacks_can_be_analyzed_without_hidden_cards(quick_brain):
+    report = analyze_match(R, quick_brain, [rnd(100, ["A", "K"], "6", [], []) for _ in range(5)])
+    assert report["final_chips"] == 1750 and len(report["rounds"]) == 5
+    assert all(not r["plays"] for r in report["rounds"])
+
 def test_split_cards_go_in_table_order():
     r = rnd(100, ["8", "8"], "6", [{"action": "split", "cards": ["3", "2"]}, {"action": "hit", "card": "K"},
                                    {"action": "hit", "card": "9"}, {"action": "stand"}], ["10", "5"])
