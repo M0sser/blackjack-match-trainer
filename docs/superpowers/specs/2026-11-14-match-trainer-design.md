@@ -222,6 +222,30 @@ outer-fifths count is 22. The weights now total 85: Mixed 33.2, Flat 500 9.2, Fl
 All-in 5.4, and the rest small. The brain's cache key includes the Mixed bet sizes, so a
 change to them re-solves.
 
+**Update 2026-11-17:** 22 more match-stats screenshots, all from matches in the review log
+(20 of them are logged; the other 2 were not in the copy of the log checked). They show the
+opponent's result on every hand, so each opponent is sorted to a betting rule by hand, as in
+the 11-15 update: Mixed 14, Flat 100 2, Flat 300 2, Turtle 1.5, Late lunge 1.5, All-in 1. Nine
+of them were among the 47 logged finals, so those 9 are dropped from the finals-only fit, which
+is redone on the other 38. Every match now counts once: 28 + 22 screenshots, 38 logged finals,
+and the first guess as 10 matches, 98 in all. Mixed 44.3, Flat 300 9.0, Flat 500 7.0, All-in
+6.4, Flat 100 5.8, and the rest small.
+
+The screenshots also check the Mixed bet sizes directly. The 14 Mixed opponents made 63 bets
+of known size. A double or blackjack on the user's own hand, which had the same cards, is
+taken to divide the opponent's result the same way. The middles of five equal-sized groups
+are 13.6%, 25%, 33%, 48%, 78% of chips, against the model's 14%, 25.2%, 31.5%, 52.5%, 84%. So
+the 11-16 scale of 1.4 stands. Two things the model leaves out: real bets are round sums (65%
+are multiples of 100, median 300) and grow more slowly than chips (the bet rises about 4%
+for each 10% more chips, not 10%). With the 11-16 model, 3 of the 11 logged finals it had not
+been fitted to fell in the outer fifths, where about 4.4 were expected.
+
+Two logged reviews disagree with their screenshots. Review 22a82e43 (IMG_6279): the
+opponent finished on 1,000, logged as 100, and round five paid 20, logged as 10. Review
+53b6cdae (IMG_6269): round three was a push, logged as a win of 65. The refit uses the
+screenshots. The hand-by-hand numbers and bet readings are in
+`docs/match-data/match-stats-2026-11-17.json`.
+
 Style weights: Book 50, Cautious 40, Dealer-copy 10. The default population
 is every betting rule crossed with every style, weighted by the product.
 These weights are Claude's guess **(my call)**. Nobody has data on how real

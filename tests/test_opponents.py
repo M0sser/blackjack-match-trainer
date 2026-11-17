@@ -56,10 +56,10 @@ def test_default_population():
     pop = build_population()
     assert len(pop) == 54 and abs(sum(o.weight for o in pop) - 1.0) < 1e-12
     o = next(o for o in pop if o.label == "Flat 100" and o.style == "book")
-    assert abs(o.weight - (3.13 / 85) * 0.50) < 1e-12 and o.name == "Flat 100, plays by the book"
+    assert abs(o.weight - (5.75 / 98) * 0.50) < 1e-12 and o.name == "Flat 100, plays by the book"
     m = next(o for o in pop if o.label == "Mixed" and o.style == "book")
-    assert abs(m.weight - (33.21 / 85) * 0.50) < 1e-12
+    assert abs(m.weight - (44.30 / 98) * 0.50) < 1e-12
     big = next(o for o in pop if o.label == "Flat 500" and o.style == "book")
-    assert abs(big.weight - (9.2 / 85) * 0.50) < 1e-12
+    assert abs(big.weight - (7.03 / 98) * 0.50) < 1e-12
     assert len(build_population(style_weights={"book": 1, "cautious": 0, "dealer_copy": 0})) == 18
     assert len(build_population(rule_weights={"Turtle": 1, "Flat 100": 3})) == 6

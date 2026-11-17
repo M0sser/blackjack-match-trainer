@@ -52,6 +52,9 @@ RULE_VARIANTS = [
 # of five equal-sized groups of 62 bet-to-chips ratios, with the bet taken as the hand's net.
 # 2026-11-16: scaled by 1.4 to fit the opponent finals of the 47 logged matches. Scales from
 # about 1.37 to 1.50 fit equally well; 1.4 also matches the share of opponents who went broke.
+# 2026-11-17: confirmed hand by hand. The 14 Mixed opponents in the 22 later screenshots made 63
+# bets of known size (a double or blackjack on your own hand with the same cards divides theirs
+# the same way). The middles of their five equal-sized groups: 13.6%, 25%, 33%, 48%, 78% of chips.
 MIXED_SHARES = (0.14, 0.252, 0.315, 0.525, 0.84)
 
 # The first guess at the mix (design doc, section 6.4), before any real matches were seen.
@@ -69,24 +72,36 @@ OBSERVED_RULE_COUNTS = {
     "All-in": 2, "Chaser 100": 1, "Mixed": 14,
 }
 
-# Opponents in 47 matches logged in the review (2026-11-16), where only the opponent's final
-# chips are known. Each match is shared out over the rules by how likely each rule made that
-# final total given the round results, with the weights above as the starting belief, so
-# these are fractional counts that add up to 47. Real finals sat in the outer fifths of the
-# predicted spread far more often than the old mix expected, which moves weight to big bets.
-# Fitted together with the MIXED_SHARES above.
+# Opponents in 22 more finished matches (screenshots IMG_6261-6284, 2026-11-17), sorted the same
+# way. They are matches from the review log, so each one is counted here and not below.
+# One opponent, met twice, bet the minimum and then made one big late bet (1,000 in round four;
+# 310 in round five); the second match counts half Turtle, half Late lunge. IMG_6267 bet 300,
+# 300, 200, then all 200 left: closest to Flat 300. No Flat 500 bettor appeared in these 22.
+# The hand-by-hand numbers are in docs/match-data/match-stats-2026-11-17.json.
+OBSERVED_RULE_COUNTS_2 = {
+    "Turtle": 1.5, "Flat 100": 2, "Flat 300": 2, "All-in": 1, "Late lunge": 1.5, "Mixed": 14,
+}
+
+# Opponents in 38 matches logged in the review (2026-11-16), where only the opponent's final
+# chips are known: the 47 logged that day minus the 9 that the later screenshots show. Each
+# match is shared out over the rules by how likely each rule made that final total given the
+# round results, with the weights above as the starting belief, so these are fractional counts
+# that add up to 38. Fitted with the MIXED_SHARES above. (Refitted 2026-11-17; the 47-match
+# version had Mixed 19.21 and Flat 500 6.40. One of the 9 had its final logged as 100; the
+# screenshot shows 1,000.)
 LOGGED_RULE_COUNTS = {
-    "Turtle": 1.30, "Flat 25": 2.37, "Flat 50": 1.02, "Flat 100": 1.63, "Flat 200": 1.20,
-    "Flat 250": 1.98, "Flat 300": 3.67, "Flat 500": 6.40, "Share 10%": 0.41, "Share 25%": 0.45,
-    "Share 50%": 0.45, "All-in": 2.60, "Double up and sit": 1.08, "Late lunge": 0.58,
-    "Chaser 50": 0.22, "Chaser 100": 1.88, "Random": 0.55, "Mixed": 19.21,
+    "Turtle": 1.45, "Flat 25": 1.44, "Flat 50": 0.69, "Flat 100": 2.25, "Flat 200": 0.46,
+    "Flat 250": 1.08, "Flat 300": 2.96, "Flat 500": 4.23, "Share 10%": 0.19, "Share 25%": 0.27,
+    "Share 50%": 0.21, "All-in": 2.64, "Double up and sit": 0.76, "Late lunge": 1.47,
+    "Chaser 50": 0.14, "Chaser 100": 1.14, "Random": 0.32, "Mixed": 16.30,
 }
 
 # The prior counts as this many matches, so a rule not seen in the real matches keeps a small weight.
 PRIOR_MATCHES = 10
 
 DEFAULT_RULE_WEIGHTS = {
-    label: OBSERVED_RULE_COUNTS.get(label, 0) + LOGGED_RULE_COUNTS.get(label, 0)
+    label: OBSERVED_RULE_COUNTS.get(label, 0) + OBSERVED_RULE_COUNTS_2.get(label, 0)
+    + LOGGED_RULE_COUNTS.get(label, 0)
     + PRIOR_MATCHES * PRIOR_RULE_WEIGHTS.get(label, 0) / sum(PRIOR_RULE_WEIGHTS.values())
     for label, _, _ in RULE_VARIANTS
 }

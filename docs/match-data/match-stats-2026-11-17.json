@@ -1,0 +1,702 @@
+{
+ "source": "21 Rivals match-stats screenshots IMG_6261-6284, sent 2026-11-17; matches played 2026-11-16.",
+ "how_read": [
+  "Nets are the per-hand results shown; null means the opponent was already out of chips.",
+  "Every row was checked: 1,000 plus the five nets equals the final shown on the screenshot.",
+  "Opponent bet: the hand's net, divided the same way as your own hand on the same cards when yours was a double (2), a blackjack (1.5) or even money. null where the hand pushed for them.",
+  "other_reading: the bet if the opponent did not double where you did.",
+  "Opponent names are left out; the same label means the same opponent."
+ ],
+ "matches": [
+  {
+   "img": "IMG_6268",
+   "review": "45ce6e23",
+   "was_in_11_16_fit": false,
+   "opponent": "opponent 1",
+   "your_nets": [
+    -45,
+    175,
+    0,
+    -75,
+    100
+   ],
+   "opponent_nets": [
+    -225,
+    -300,
+    0,
+    -325,
+    -120
+   ],
+   "your_final": 1155,
+   "opponent_final": 30,
+   "opponent_bets_read": [
+    225,
+    300,
+    null,
+    325,
+    120
+   ],
+   "other_reading": {},
+   "rule": "Mixed"
+  },
+  {
+   "img": "IMG_6267",
+   "review": "7374c16e",
+   "was_in_11_16_fit": false,
+   "opponent": "opponent 2",
+   "your_nets": [
+    -45,
+    -175,
+    -175,
+    -300,
+    50
+   ],
+   "opponent_nets": [
+    -300,
+    -300,
+    -200,
+    -200,
+    null
+   ],
+   "your_final": 355,
+   "opponent_final": 0,
+   "opponent_bets_read": [
+    300,
+    300,
+    200,
+    200,
+    null
+   ],
+   "other_reading": {},
+   "rule": "Flat 300"
+  },
+  {
+   "img": "IMG_6266",
+   "review": "88fe85a7",
+   "was_in_11_16_fit": false,
+   "opponent": "opponent 3",
+   "your_nets": [
+    67.5,
+    10,
+    10,
+    -1060,
+    -20
+   ],
+   "opponent_nets": [
+    15,
+    10,
+    10,
+    -1000,
+    -10
+   ],
+   "your_final": 7.5,
+   "opponent_final": 25,
+   "opponent_bets_read": [
+    10,
+    10,
+    10,
+    1000,
+    10
+   ],
+   "other_reading": {},
+   "rule": "Late lunge"
+  },
+  {
+   "img": "IMG_6265",
+   "review": "af1f2a9b",
+   "was_in_11_16_fit": false,
+   "opponent": "opponent 4",
+   "your_nets": [
+    45,
+    25,
+    -10,
+    10,
+    -1060
+   ],
+   "opponent_nets": [
+    200,
+    400,
+    -700,
+    200,
+    -500
+   ],
+   "your_final": 10,
+   "opponent_final": 600,
+   "opponent_bets_read": [
+    200,
+    400,
+    700,
+    200,
+    500
+   ],
+   "other_reading": {},
+   "rule": "Mixed"
+  },
+  {
+   "img": "IMG_6264",
+   "review": "88eb06a8",
+   "was_in_11_16_fit": false,
+   "opponent": "opponent 5",
+   "your_nets": [
+    -45,
+    -175,
+    175,
+    500,
+    -225
+   ],
+   "opponent_nets": [
+    -300,
+    -500,
+    200,
+    400,
+    -800
+   ],
+   "your_final": 1230,
+   "opponent_final": 0,
+   "opponent_bets_read": [
+    300,
+    500,
+    200,
+    200,
+    800
+   ],
+   "other_reading": {
+    "4": 400
+   },
+   "rule": "Mixed"
+  },
+  {
+   "img": "IMG_6263",
+   "review": "9c422435",
+   "was_in_11_16_fit": false,
+   "opponent": "opponent 6",
+   "your_nets": [
+    45,
+    -25,
+    -65,
+    -200,
+    -250
+   ],
+   "opponent_nets": [
+    275,
+    -375,
+    -400,
+    -375,
+    -100
+   ],
+   "your_final": 505,
+   "opponent_final": 25,
+   "opponent_bets_read": [
+    275,
+    375,
+    400,
+    375,
+    100
+   ],
+   "other_reading": {},
+   "rule": "Mixed"
+  },
+  {
+   "img": "IMG_6262",
+   "review": null,
+   "was_in_11_16_fit": false,
+   "opponent": "opponent 7",
+   "your_nets": [
+    45,
+    -10,
+    65,
+    250,
+    -1000
+   ],
+   "opponent_nets": [
+    300,
+    -300,
+    600,
+    400,
+    1200
+   ],
+   "your_final": 350,
+   "opponent_final": 3200,
+   "opponent_bets_read": [
+    300,
+    300,
+    600,
+    400,
+    1200
+   ],
+   "other_reading": {},
+   "rule": "Mixed"
+  },
+  {
+   "img": "IMG_6261",
+   "review": null,
+   "was_in_11_16_fit": false,
+   "opponent": "opponent 8",
+   "your_nets": [
+    -45,
+    -175,
+    350,
+    -25,
+    -95
+   ],
+   "opponent_nets": [
+    -20,
+    -330,
+    520,
+    -260,
+    -300
+   ],
+   "your_final": 1010,
+   "opponent_final": 610,
+   "opponent_bets_read": [
+    20,
+    330,
+    260,
+    260,
+    300
+   ],
+   "other_reading": {
+    "3": 520
+   },
+   "rule": "Mixed"
+  },
+  {
+   "img": "IMG_6284",
+   "review": "6698064e",
+   "was_in_11_16_fit": true,
+   "opponent": "opponent 9",
+   "your_nets": [
+    0,
+    -60,
+    -175,
+    -250,
+    100
+   ],
+   "opponent_nets": [
+    0,
+    -500,
+    -200,
+    -200,
+    0
+   ],
+   "your_final": 615,
+   "opponent_final": 100,
+   "opponent_bets_read": [
+    null,
+    500,
+    200,
+    200,
+    null
+   ],
+   "other_reading": {},
+   "rule": "Mixed"
+  },
+  {
+   "img": "IMG_6283",
+   "review": "84db2b4e",
+   "was_in_11_16_fit": true,
+   "opponent": "opponent 10",
+   "your_nets": [
+    45,
+    -25,
+    65,
+    30,
+    10
+   ],
+   "opponent_nets": [
+    290,
+    -165,
+    380,
+    230,
+    180
+   ],
+   "your_final": 1125,
+   "opponent_final": 1915,
+   "opponent_bets_read": [
+    290,
+    165,
+    380,
+    230,
+    180
+   ],
+   "other_reading": {},
+   "rule": "Mixed"
+  },
+  {
+   "img": "IMG_6280",
+   "review": "70699885",
+   "was_in_11_16_fit": true,
+   "opponent": "opponent 11",
+   "your_nets": [
+    45,
+    -25,
+    -65,
+    0,
+    50
+   ],
+   "opponent_nets": [
+    1000,
+    -300,
+    -300,
+    -200,
+    200
+   ],
+   "your_final": 1005,
+   "opponent_final": 1400,
+   "opponent_bets_read": [
+    1000,
+    300,
+    300,
+    200,
+    200
+   ],
+   "other_reading": {},
+   "rule": "Mixed"
+  },
+  {
+   "img": "IMG_6279",
+   "review": "22a82e43",
+   "was_in_11_16_fit": true,
+   "opponent": "opponent 12",
+   "your_nets": [
+    45,
+    0,
+    -10,
+    -20,
+    20
+   ],
+   "opponent_nets": [
+    300,
+    0,
+    -300,
+    -300,
+    300
+   ],
+   "your_final": 1035,
+   "opponent_final": 1000,
+   "opponent_bets_read": [
+    300,
+    null,
+    300,
+    300,
+    300
+   ],
+   "other_reading": {},
+   "rule": "Flat 300"
+  },
+  {
+   "img": "IMG_6278",
+   "review": "e061bdc6",
+   "was_in_11_16_fit": true,
+   "opponent": "opponent 13",
+   "your_nets": [
+    -45,
+    175,
+    125,
+    150,
+    -25
+   ],
+   "opponent_nets": [
+    -50,
+    100,
+    100,
+    150,
+    -200
+   ],
+   "your_final": 1380,
+   "opponent_final": 1100,
+   "opponent_bets_read": [
+    50,
+    100,
+    100,
+    100,
+    200
+   ],
+   "other_reading": {},
+   "rule": "Flat 100"
+  },
+  {
+   "img": "IMG_6277",
+   "review": "fa9a4ff7",
+   "was_in_11_16_fit": true,
+   "opponent": "opponent 14",
+   "your_nets": [
+    -45,
+    0,
+    -175,
+    0,
+    0
+   ],
+   "opponent_nets": [
+    -430,
+    40,
+    -430,
+    0,
+    0
+   ],
+   "your_final": 780,
+   "opponent_final": 180,
+   "opponent_bets_read": [
+    430,
+    40,
+    430,
+    null,
+    null
+   ],
+   "other_reading": {},
+   "rule": "Mixed"
+  },
+  {
+   "img": "IMG_6276",
+   "review": "a96c53e5",
+   "was_in_11_16_fit": true,
+   "opponent": "opponent 3",
+   "your_nets": [
+    -45,
+    175,
+    -125,
+    0,
+    -15
+   ],
+   "opponent_nets": [
+    -10,
+    10,
+    -10,
+    0,
+    -310
+   ],
+   "your_final": 990,
+   "opponent_final": 680,
+   "opponent_bets_read": [
+    10,
+    10,
+    10,
+    null,
+    310
+   ],
+   "other_reading": {},
+   "rule": "Turtle/Late lunge"
+  },
+  {
+   "img": "IMG_6275",
+   "review": "e7df145a",
+   "was_in_11_16_fit": true,
+   "opponent": "opponent 15",
+   "your_nets": [
+    -45,
+    175,
+    -250,
+    175,
+    50
+   ],
+   "opponent_nets": [
+    -10,
+    10,
+    -20,
+    10,
+    20
+   ],
+   "your_final": 1105,
+   "opponent_final": 1010,
+   "opponent_bets_read": [
+    10,
+    10,
+    10,
+    10,
+    20
+   ],
+   "other_reading": {},
+   "rule": "Turtle"
+  },
+  {
+   "img": "IMG_6274",
+   "review": "f9f5c97d",
+   "was_in_11_16_fit": false,
+   "opponent": "opponent 16",
+   "your_nets": [
+    45,
+    -25,
+    97.5,
+    20,
+    -1035
+   ],
+   "opponent_nets": [
+    800,
+    -500,
+    500,
+    1100,
+    -700
+   ],
+   "your_final": 102.5,
+   "opponent_final": 2200,
+   "opponent_bets_read": [
+    800,
+    500,
+    500,
+    550,
+    700
+   ],
+   "other_reading": {
+    "4": 1100
+   },
+   "rule": "Mixed"
+  },
+  {
+   "img": "IMG_6273",
+   "review": "9b0919ad",
+   "was_in_11_16_fit": false,
+   "opponent": "opponent 17",
+   "your_nets": [
+    -45,
+    175,
+    -125,
+    150,
+    -150
+   ],
+   "opponent_nets": [
+    -300,
+    200,
+    -100,
+    200,
+    -100
+   ],
+   "your_final": 1005,
+   "opponent_final": 900,
+   "opponent_bets_read": [
+    300,
+    200,
+    100,
+    200,
+    100
+   ],
+   "other_reading": {},
+   "rule": "Mixed"
+  },
+  {
+   "img": "IMG_6272",
+   "review": "9b56f2a7",
+   "was_in_11_16_fit": false,
+   "opponent": "opponent 18",
+   "your_nets": [
+    -45,
+    350,
+    125,
+    125,
+    -1000
+   ],
+   "opponent_nets": [
+    -250,
+    400,
+    325,
+    200,
+    -575
+   ],
+   "your_final": 555,
+   "opponent_final": 1100,
+   "opponent_bets_read": [
+    250,
+    200,
+    325,
+    200,
+    575
+   ],
+   "other_reading": {
+    "2": 400
+   },
+   "rule": "Mixed"
+  },
+  {
+   "img": "IMG_6271",
+   "review": "a57d7975",
+   "was_in_11_16_fit": true,
+   "opponent": "opponent 19",
+   "your_nets": [
+    -45,
+    -175,
+    -175,
+    -150,
+    50
+   ],
+   "opponent_nets": [
+    -1000,
+    null,
+    null,
+    null,
+    null
+   ],
+   "your_final": 505,
+   "opponent_final": 0,
+   "opponent_bets_read": [
+    1000,
+    null,
+    null,
+    null,
+    null
+   ],
+   "other_reading": {},
+   "rule": "All-in"
+  },
+  {
+   "img": "IMG_6270",
+   "review": "a5d1a04d",
+   "was_in_11_16_fit": false,
+   "opponent": "opponent 20",
+   "your_nets": [
+    -45,
+    -175,
+    175,
+    -500,
+    100
+   ],
+   "opponent_nets": [
+    0,
+    -700,
+    200,
+    0,
+    300
+   ],
+   "your_final": 555,
+   "opponent_final": 800,
+   "opponent_bets_read": [
+    null,
+    700,
+    200,
+    null,
+    300
+   ],
+   "other_reading": {},
+   "rule": "Mixed"
+  },
+  {
+   "img": "IMG_6269",
+   "review": "53b6cdae",
+   "was_in_11_16_fit": false,
+   "opponent": "opponent 21",
+   "your_nets": [
+    -45,
+    187.5,
+    0,
+    100,
+    -100
+   ],
+   "opponent_nets": [
+    -100,
+    37.5,
+    0,
+    -25,
+    -100
+   ],
+   "your_final": 1142.5,
+   "opponent_final": 812.5,
+   "opponent_bets_read": [
+    100,
+    25,
+    null,
+    25,
+    100
+   ],
+   "other_reading": {},
+   "rule": "Flat 100"
+  }
+ ]
+}
