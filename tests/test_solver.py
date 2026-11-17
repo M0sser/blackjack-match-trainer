@@ -76,3 +76,13 @@ def test_solution_round_trip(tmp_path, vs_turtle):
     assert all(np.array_equal(a, b) for a, b in zip(again.value, vs_turtle.value))
     assert all(np.array_equal(a, b) for a, b in zip(again.bet, vs_turtle.bet))
     assert np.array_equal(again.grid, vs_turtle.grid)
+
+
+def test_candidates_include_all_but_one_step(tables):
+    from trainer.solver import _Candidates
+    grid = np.array([0.0, 12.0, 20.0, 1007.5, 1160.0])
+    cand = _Candidates(R, tables, grid, bet_menu(False))
+    options = lambda chips: set(cand.bets[cand.chip_index == int(np.flatnonzero(grid == chips)[0])].tolist())
+    assert {1155.0, 1160.0} <= options(1160.0) and {1000.0, 1005.0} <= options(1007.5)
+    assert {15.0, 20.0} <= options(20.0)
+    assert options(12.0) == {10.0} and options(0.0) == {0.0}

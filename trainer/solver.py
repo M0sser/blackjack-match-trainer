@@ -217,8 +217,14 @@ class _Candidates:
                 bets.append(0.0)
                 continue
             options = [b for b in menu if rules.min_bet <= b <= cap]
-            if not options or options[-1] != cap:
+            # All but one step: keeps a few chips that still beat an opponent who ends on 0.
+            # Losing it leaves you on 5 chips instead of 0, so it is never worse than all-in.
+            short = cap - rules.bet_step
+            if short >= rules.min_bet and short not in options:
+                options.append(short)
+            if cap not in options:
                 options.append(cap)         # all-in
+            options.sort()
             chip_index.extend([i] * len(options))
             bets.extend(options)
         self.chip_index = np.array(chip_index, dtype=np.intp)

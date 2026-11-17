@@ -110,3 +110,19 @@ def test_fingerprint_changes_with_mixed_shares(monkeypatch):
     before = _fingerprint(Rules(), pop, BrainConfig())
     monkeypatch.setattr(brain_module, "MIXED_SHARES", (0.1, 0.2, 0.3, 0.4, 0.5))
     assert _fingerprint(Rules(), pop, BrainConfig()) != before
+
+
+def test_a_dead_heat_is_shown_as_the_book_play(turtle_brain):
+    # Far enough ahead of a turtle that every play wins: the plays tie, and the label should be Book's.
+    s = spot(main_bet=10.0, player=[C("10S"), C("3D")], upcard=C("2H"))
+    g = turtle_brain.grade_play(s, LOST4, "hit")
+    assert g.chances["hit"] == g.chances["stand"] == g.chances["double"] == 1.0
+    assert g.best == "stand" and g.fine
+
+
+def test_a_real_difference_beats_the_book_play(turtle_brain):
+    # Behind a turtle, only the double can catch up, even though Book would also double here;
+    # with 13 against 2 Book stands, but standing cannot win, so the label must not be Book's.
+    s = spot(main_bet=40.0, player=[C("10S"), C("3D")], upcard=C("2H"))
+    g = turtle_brain.grade_play(s, WON4, "stand")
+    assert g.best != "stand"

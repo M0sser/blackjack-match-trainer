@@ -15,8 +15,8 @@ from typing import Callable, Sequence
 
 import numpy as np
 
-from trainer.cards import VALUES, value_of
-from trainer.engine import play_round
+from trainer.cards import VALUES, parse_card, value_of
+from trainer.engine import Round, play_round
 from trainer.fast import play_rounds, sample_completions
 from trainer.opponents import MIXED_SHARES, OpponentType
 from trainer.rules import Rules
@@ -29,7 +29,7 @@ from trainer.tables import LEVELS, N_CLASSES, Tables, build_tables, class_of, lo
 TOLERANCE = 0.005                      # a choice this close to the best counts as fine
 _SIDE_MENU = (0.0, 5.0, 10.0, 25.0, 50.0, 100.0, 200.0, 500.0, 1000.0)
 _CLASS_SAMPLES = 2000
-_CACHE_VERSION = 1
+_CACHE_VERSION = 2                      # 2: the solver also tries all-but-one-step bets
 _FINALS_KEPT = 256
 
 History = list                         # one dict per past round: class -> probability
@@ -302,6 +302,25 @@ class Brain:
         return BetGrade(yours=yours, best=best, your_chance=your_chance, best_chance=best_chance,
                         fine=your_chance >= best_chance - TOLERANCE)
 
+    def _book_choice(self, spot: PlaySpot) -> str | None:
+        """What Book would do at this decision, by replaying it on the reference engine; None if unknown."""
+        if spot.stage != "play":
+            return None
+        try:
+            hole = parse_card("2")          # a stand-in down card that never makes a dealer blackjack
+            shoe = [int(spot.player[0]), int(spot.upcard), int(spot.player[1]), hole] + [int(c) for c in spot.drawn]
+            round_ = Round(self.rules, shoe, spot.chips_start, spot.main_bet, spot.pp_bet, spot.fct_bet)
+            if round_.phase == "insurance":
+                round_.act("insurance" if spot.insurance_bet else "no_insurance")
+            for action in spot.script:
+                round_.act(action)
+            if round_.phase != "play":
+                return None
+            choice = self._book(round_.view())
+        except Exception:
+            return None
+        return choice if choice in spot.legal else None
+
     def _spot_seed(self, spot: PlaySpot) -> int:
         text = json.dumps([spot.round_no, spot.chips_start, spot.main_bet, spot.pp_bet, spot.fct_bet,
                            spot.insurance_bet, [int(c) for c in spot.player], int(spot.upcard),
@@ -360,6 +379,11 @@ class Brain:
 
         chances = {choice: float(values.mean()) for choice, values in ahead.items()}
         best = max(spot.legal, key=lambda choice: chances[choice])
+        book = self._book_choice(spot)
+        if book is not None and book != best:     # a dead heat within the sampling noise goes to Book
+            tie = ahead[best] - ahead[book]
+            if float(tie.mean()) <= 2 * float(tie.std() / np.sqrt(n)):
+                best = book
         gap = ahead[best] - ahead[chosen]
         shortfall = float(gap.mean())
         noise = float(gap.std() / np.sqrt(n)) if n > 1 else 0.0
